@@ -88,8 +88,14 @@ C:\Projecto Decompile\
     INSTALL.bat, env.ps1, env.bat, README.md, grabar_partida.bat   (copies from repo\setup\)
 repo\
   setup\        installer (setup.ps1, versions.json, env.*, record_game.bat, ci_tools.py, sdl3_test\)
-  tools\        audit.py, check_commit.py, hooks\ (more from Phase 0 on)
+  tools\        audit.py, check_commit.py, hooks\; Phase 0: verify_set.py, probe_decryption.py,
+                rebuild_set.py; mame\ (dump_region.lua, oracle_phase0.lua, trace_banks.lua,
+                trace_z80_banks.lua, screenshots.lua)
+  docs\         ROM_MAP.md
 ```
+
+Rebuild the MAME set from the GOG copy (once the maps are learned, `analysis\phase0\probe\`):
+`python tools/rebuild_set.py` (to `roms\mslug4h\`), then `python tools/verify_set.py mslug4h`.
 
 Activate the environment: `. "C:\Projecto Decompile\MS4_Port\env.ps1"` (PowerShell) or
 `call "C:\Projecto Decompile\MS4_Port\env.bat"` (cmd). `PD_ROOT` is the workspace, `PD_TOOLS` the
@@ -98,20 +104,51 @@ shared tools, `PD_ROMS` the ROM folder. Verify: `MS4_Port\INSTALL.bat -VerifyOnl
 `roms\gog\`; the BIOS, `-Bios`, default the Metal Slug 3 workspace's `roms\mame\neogeo`, to
 `roms\neogeo\`).
 
-Oracle (from Phase 0, once the set is rebuilt): `mame mslug4h -bios us -rompath "<workspace>\roms"`.
+Oracle: `mame mslug4h -bios us -rompath "<workspace>\roms"` (the rebuilt set in `roms\mslug4h\`).
 
 ## Status by phase
 
 | Phase | Status |
 |---|---|
 | Environment | **Closed** (2026-10-23). Verification 17/17 OK. ROMs copied to `roms\`. |
-| 0. Reconnaissance (Code Mystics format, encryption schemes, black-box decryption, rebuilt `mslug4h` set, ROM map, P2 banks, developer menu, oracle) | Next |
+| 0. Reconnaissance (Code Mystics format, encryption schemes, black-box decryption, rebuilt `mslug4h` set, ROM map, P2 banks, developer menu, oracle) | **Closed** (2026-10-23). See `docs/ROM_MAP.md`. All 11 game ROMs of `mslug4h` rebuilt from GOG (CRC-32 and SHA-1), the M1 included. |
 | 1. Import Metal Slug 5's runtime and frontend with an empty `mslug4h` descriptor and profile (four executables) | - |
 | 2. Metal Slug 4 hardware in the interpreter (minimal GOG loader, P2 banks, decrypted M1, PCM2) | - |
 | 3. Analysis and recompilation | - |
 | 4. Profile and frontend (boss bar and Boss Rush as a stage of their own) | - |
 | 5. Universal loader (GOG, the MAME set decrypted at load) | - |
 | 6. Publishing (`AlmazProud/metal-slug-4-recomp`) | - |
+
+### Phase 0: result
+
+Details in `docs/ROM_MAP.md`.
+
+- **The GOG files are MAME's `mslug4h` regions:** `p1.bin` = `maincpu` (the NGH program, not
+  encrypted), `c1.bin` = `sprites` in Code Mystics' packed-pixel layout, `s2.bin` = `fixed`
+  (512 KB), `m1.bin` = `audiocpu` (576 KB), `v1.bin` = `adpcma`, `sp_4j.bin` = `japan-j3.bin`.
+  `s1.bin` (another 128 KB fix) and `sp_4s.bin` (an MVS BIOS MAME does not list) are not needed.
+- **Learned as a black box** (`tools/probe_decryption.py`, synthetic patterns with zero-filled
+  stand-ins, no MAME code read): program identity; CMC50 sprites and fix affine (XOR per byte, the
+  fix = the decrypted sprites' last 512 KB rearranged); PCM2 only an address XOR 4; the M1 a byte
+  permutation keyed by the 16-bit sum of the first 64 KB, whose banks stay in place, so the key
+  comes from the decrypted data: 0xB5E6. Each map checked on a fresh random image and on the
+  rebuilt set against MAME's dumps.
+- **The set rebuilt** (`tools/rebuild_set.py`, the maps inverted, the packed pixels converted back
+  to bit planes): all 11 game ROMs of `mslug4h` with MAME's CRC-32 and SHA-1, `263-m1.m1`
+  included (the risk the user flagged: resolved). `mame -verifyroms`: only the BIOS stand-ins
+  differ. `roms\mslug4h\` (the set) and `roms\decrypted\` (MAME's regions) are outside the repo.
+- **Hardware:** standard P2 bank switching (`0x2FFFF0` = 0-3, and 7 three times at boot), no
+  protection chip; the Z80 uses only the default NEO-ZMC banks; **the fix is 512 KB** (fix
+  banking, as in Metal Slug 3).
+- **Developer menu:** `SET DEBUG DIP`, `TEST STAGE`, `COLOR BAR`, `STAGE SELECT` (6 stages),
+  `SOUND TEST`; 4 references to `0x10FE80` and 17 to `0x10F000`. P1 also keeps the developers'
+  **debug symbols** (1 495 `NAME $ADDRESS` pairs: bosses, player, vehicles, tasks).
+- **Soft dips:** PLAY MANUAL (option 4) and BLOOD (option 8) in the header tables.
+- **Oracle:** `mame mslug4h -bios us -rompath roms` boots to the title and the attract demo, and a
+  scripted game plays Mission 1 to game over, with sound (95 of 122 s).
+- Tools added: `verify_set.py`, `probe_decryption.py` (mslug4h, stand-ins, `--key`, constant
+  outputs), `rebuild_set.py`; Lua: `dump_region.lua`, `oracle_phase0.lua`, `trace_banks.lua`,
+  `trace_z80_banks.lua`, `screenshots.lua`.
 
 ### Environment phase: result
 
@@ -134,31 +171,22 @@ Oracle (from Phase 0, once the set is rebuilt): `mame mslug4h -bios us -rompath 
   identical to their sources by SHA-256, with `MANIFEST.sha256`.
 - Root copies: `INSTALL.bat`, `env.ps1`, `env.bat`, `README.md`, `grabar_partida.bat`.
 
-## The user's GOG copy (to be confirmed in Phase 0)
+## The user's GOG copy (confirmed in Phase 0, `docs/ROM_MAP.md`)
 
-`K:\METAL SLUG 4\Data\rom`:
+`K:\METAL SLUG 4\Data\rom` holds MAME's `mslug4h` regions after MAME's own transformations:
 
-| File | Bytes | What it probably is (CRC-32 against `mame -listxml` 0.289, by the user) |
+| File | Bytes | What it is |
 |---|---|---|
-| `p1.bin` | 5 MB | exactly `mslug4h`'s program: `263-ph1.p1` (1 MB, `c67f5c8d`) + `263-ph2.sp2` (4 MB, `bc3ec89e`); not `mslug4`'s `263-p1.p1` |
-| `c1.bin` | 48 MB | the 6 C ROMs, probably CMC50-decrypted |
-| `s1.bin` | 128 KB | the fix taken from the C ROMs |
-| `s2.bin` | 512 KB | unknown: none of its 128 KB blocks is MAME's `sfix.sfix` |
-| `m1.bin` | 576 KB | probably MAME's `audiocpu` region, decrypted from `263-m1.m1` (128 KB, `46ac8228`) |
-| `v1.bin` | 16 MB | does not match `263-v1`/`263-v2`: probably PCM2-decrypted |
-| `sp_4j.bin` | 128 KB | `japan-j3.bin` (BIOS `japan-mv1b`, `dff6d41f`) |
-| `sp_4s.bin` | 128 KB | `142e97cc`, matches no MAME BIOS: to identify |
+| `p1.bin` | 5 MB | `maincpu`: `263-ph1.p1` + `263-ph2.sp2` as they are (not encrypted) |
+| `c1.bin` | 48 MB | `sprites` (after CMC50) in Code Mystics' packed-pixel layout |
+| `s2.bin` | 512 KB | `fixed` (taken from the C ROMs) |
+| `m1.bin` | 576 KB | `audiocpu` (`263-m1.m1` after CMC50; key 0xB5E6) |
+| `v1.bin` | 16 MB | `adpcma` (`263-v1` + `263-v2` after PCM2) |
+| `sp_4j.bin` | 128 KB | `japan-j3.bin` (BIOS `japan-mv1b`) |
+| `s1.bin`, `sp_4s.bin` | 128 KB each | another fix and an MVS BIOS MAME does not list: not needed |
 
-`Options\` holds only `Modes.txt` (19 bytes). `Data\` also holds the emulator's interface (`ui\`,
-`fonts\`, `logos\`, `borders\`, `strings.txt`...) and the user's `~options.bin`, `~scores.bin`,
-`~windows.bin`.
-
-In MAME (`neocart_mslug4`, PCM2 protection): the program is **not** encrypted (P1 1 MB + P2 4 MB
-banked), the C ROMs use **CMC50** (the fix comes from them, no S1), the M1 is CMC50-encrypted and
-the V ROMs **PCM2**: Metal Slug 5's schemes without the NEO-PVC, with other keys. All to be
-confirmed in Phase 0. **The risk is the M1:** its decryption depends on the 16-bit sum of the
-encrypted file's first 64 KB; inverting it means finding the key consistent with `263-m1.m1`
-(`46ac8228`). If that fails, tell the user before looking for another way.
+`Options\` holds only `Modes.txt` (two emulator settings); `Data\` the emulator's interface and the
+user's `~*.bin` settings: nothing of the game.
 
 BIOS: the set has none. The Metal Slug 3 workspace's files are used (`sp-u2.sp1`, `000-lo.lo`,
 `sm1.sm1`, `sfix.sfix`): `sfix.sfix` is GOG's Metal Slug 3 one, 28 bytes different from MAME's, and
