@@ -111,7 +111,26 @@ function(pd_game_executable id)
     if(WIN32)
         list(APPEND sources port/${id}.rc)
     endif()
+    # The user's own icon (personal builds only, like the recompiled program): PD_ICON_DIR/<id>.png,
+    # outside the repository (it may be the game's artwork), made into an .ico and its resource in
+    # the build folder by tools/make_icon.ps1. The distributable build has no icon.
+    set(icon OFF)
+    if(WIN32 AND PD_RECOMPILED AND EXISTS "${PD_ICON_DIR}/${id}.png")
+        set(ico ${CMAKE_CURRENT_BINARY_DIR}/${id}_icon.ico)
+        set(rc ${CMAKE_CURRENT_BINARY_DIR}/${id}_icon.rc)
+        add_custom_command(OUTPUT ${ico} ${rc}
+            COMMAND powershell -NoProfile -ExecutionPolicy Bypass -File ${PROJECT_SOURCE_DIR}/tools/make_icon.ps1
+                    -Png ${PD_ICON_DIR}/${id}.png -Ico ${ico} -Rc ${rc}
+            DEPENDS ${PD_ICON_DIR}/${id}.png ${PROJECT_SOURCE_DIR}/tools/make_icon.ps1
+            COMMENT "Icon of ${id} from the user's ${id}.png"
+            VERBATIM)
+        list(APPEND sources ${rc})
+        set(icon ON)
+    endif()
     add_executable(${id} WIN32 ${sources})
+    if(icon)
+        target_compile_definitions(${id} PRIVATE PD_HAS_ICON=1)
+    endif()
     target_include_directories(${id} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/port)
     target_link_libraries(${id} PRIVATE neogeo recompiled_${id} SDL3::SDL3)
     if(WIN32)

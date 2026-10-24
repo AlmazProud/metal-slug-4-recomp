@@ -14,6 +14,8 @@ set(CMAKE_C_EXTENSIONS OFF)
 # 68000 analysis (PD_ANALYSIS). None of that goes into the repo.
 set(PD_ROMS "$ENV{PD_ROMS}" CACHE PATH "Folder with the user's Metal Slug 4 copy (gog\\, mslug4h\\, neogeo\\)")
 set(PD_ANALYSIS "$ENV{PD_ROOT}/analysis" CACHE PATH "Metal Slug 4 analysis output folder")
+# The user's own icons for personal builds (<id>.png; src/CMakeLists.txt): outside the repo.
+set(PD_ICON_DIR "$ENV{PD_ROOT}/assets" CACHE PATH "Folder with the user's icon images (<game id>.png), personal builds only")
 # Regression targets, the other ports' workspaces (read only), next to this one: Metal Slug 5 in
 # <parent>\MS5_Port, Metal Slug 3 in <parent>\MS3_Port, Metal Slug X in <parent> itself.
 # mslug5.exe / mslug3.exe / mslugx.exe and their tests are only built when those copies are there.

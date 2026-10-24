@@ -1128,6 +1128,11 @@ static int find_roms(const Options *o)
 /* ------------------------------------------------------------------ main */
 int window_run(const Options *o)
 {
+#if defined(_WIN32) && defined(PD_HAS_ICON)
+    /* A personal build with the user's icon (resource 1, src/CMakeLists.txt): the window uses it. */
+    SDL_SetHint(SDL_HINT_WINDOWS_INTRESOURCE_ICON, "1");
+    SDL_SetHint(SDL_HINT_WINDOWS_INTRESOURCE_ICON_SMALL, "1");
+#endif
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | (o->no_audio ? 0 : SDL_INIT_AUDIO))) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
