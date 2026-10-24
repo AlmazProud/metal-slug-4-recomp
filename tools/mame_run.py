@@ -57,6 +57,8 @@ START = {
     "mslug3": [(1800, 1805, "coin1"), (1900, 1905, "start1"), (2200, 2205, "a"), (2450, 2455, "a")],
     # Metal Slug 5: after START the game's "How to play" runs until Soldier Select (about 5800).
     "mslug5": [(2600, 2605, "coin1"), (2800, 2805, "start1"), (6100, 6105, "a"), (6400, 6405, "a")],
+    # Metal Slug 4: the "How to play" until about 3600, Soldier Select by 4500.
+    "mslug4h": [(1800, 1805, "coin1"), (2000, 2005, "start1"), (4700, 4705, "a"), (5000, 5005, "a")],
 }
 
 
@@ -96,7 +98,7 @@ def inp_date(inp: Path) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--game", default="mslug5", help="MAME machine (mslug5, mslug3, mslugx)")
+    ap.add_argument("--game", default="mslug4h", help="MAME machine (mslug4h, mslug5, mslug3, mslugx)")
     ap.add_argument("--script", help="attract, start or a script file (not needed with --replay --name)")
     ap.add_argument("--frames", type=int, default=10000)
     ap.add_argument("--out", type=Path, required=True)
@@ -153,7 +155,7 @@ def main() -> int:
         env.update(PD_SCREENSHOTS_SCRIPT=str(REPO / "tools" / "mame" / "screenshots.lua"),
                    PD_SCREENSHOT_FRAMES=a.screenshots, PD_PREFIX=name)
     # The MAME set: <workspace>/roms/mame (Metal Slug 3: rebuilt by extract_roms.py) or, for Metal
-    # Slug 5, <workspace>/roms itself (mslug5.zip and neogeo).
+    # Slug 5 and 4, <workspace>/roms itself (mslug5.zip / the rebuilt mslug4h, and neogeo).
     rompath = ROOT / "roms" / "mame" if (ROOT / "roms" / "mame").is_dir() else ROOT / "roms"
     cmd = [str(mame), a.game, "-bios", "us", "-rompath", str(rompath),
            "-video", "none", "-sound", "none", "-nothrottle",

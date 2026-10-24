@@ -14,12 +14,17 @@ Usage:
           audio/, adpcm/)
   --out   where the set goes (default <workspace>/roms/mslug4h, loose files MAME reads with
           -rompath roms)
+  --sm1   also replaces <workspace>/roms/neogeo/sm1.sm1 (MAME's sound BIOS, not in the user's
+          files) by the first 128 KB of the decrypted M1 (m1.bin from 0x10000): the port has no
+          SM1 and boots the Z80 from the M1, so MAME must run the same code (as the Metal Slug 3
+          and 5 workspaces did with their own M1). roms/MANIFEST.sha256 is updated.
 
 Nothing here holds game data; the rebuilt files stay outside the repository.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import sys
 from pathlib import Path
 
@@ -93,7 +98,17 @@ def main() -> int:
     ap.add_argument("--gog", type=Path, default=ROOT / "roms" / "gog")
     ap.add_argument("--maps", type=Path, default=ROOT / "analysis" / "phase0" / "probe")
     ap.add_argument("--out", type=Path, default=ROOT / "roms" / "mslug4h")
+    ap.add_argument("--sm1", action="store_true")
     a = ap.parse_args()
+    if a.sm1:
+        roms = ROOT / "roms"
+        (roms / "neogeo" / "sm1.sm1").write_bytes((a.gog / "m1.bin").read_bytes()[0x10000:0x30000])
+        lines = []
+        for f in sorted(p for p in roms.rglob("*") if p.is_file() and not p.name.upper().startswith("MANIFEST")):
+            lines.append(f"{hashlib.sha256(f.read_bytes()).hexdigest()} *{f.relative_to(roms).as_posix()}")
+        (roms / "MANIFEST.sha256").write_text("\r\n".join(lines) + "\r\n")
+        print(f"sm1.sm1: the first 128 KB of the decrypted M1; {len(lines)} files in MANIFEST.sha256")
+        return 0
     a.out.mkdir(parents=True, exist_ok=True)
     for name, (gog_file, label) in GOG.items():
         t = TARGETS[name]

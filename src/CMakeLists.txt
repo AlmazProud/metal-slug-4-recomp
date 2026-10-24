@@ -166,13 +166,48 @@ else()
 endif()
 
 # ------------------------------------------------------------------ Metal Slug 4 tests
-# Phase 1: the user's copies are recognized and reported, not loaded yet (docs/PHASE1_IMPORT.md):
-# the GOG copy (Code Mystics' Data\rom\*.bin, by SHA-256) and the mslug4h set rebuilt from it
-# (tools/rebuild_set.py; every file by CRC-32 and SHA-1, linked into the build folder with the BIOS).
+# Phase 2 (docs/PHASE2_HARDWARE.md): the GOG copy (Code Mystics' Data\rom\*.bin, by SHA-256) loads
+# with the BIOS files of PD_ROMS/neogeo, and every part the runtime loaded equals MAME's regions
+# (tools/check_load.py against PD_ROMS/decrypted). Alone, it says which system files are missing.
 if(EXISTS "${PD_ROMS}/gog/p1.bin")
-    add_test(NAME mslug4_roms_gog COMMAND mslug4 --roms ${PD_ROMS}/gog --headless --frames 1 --no-audio)
-    set_tests_properties(mslug4_roms_gog PROPERTIES LABELS mslug4
-                         PASS_REGULAR_EXPRESSION "GOG copy \\(Code Mystics\\) found and verified \\(5 files\\)")
+    add_test(NAME mslug4_roms_gog COMMAND mslug4 --roms ${PD_ROMS} --headless --frames 1 --no-audio)
+    set_tests_properties(mslug4_roms_gog PROPERTIES LABELS mslug4 ENVIRONMENT "PD_ROMS_INFO=1"
+                         PASS_REGULAR_EXPRESSION "PC release files \\(Code Mystics\\), GOG program, BIOS us\n")
+    add_test(NAME mslug4_roms_gog_alone COMMAND mslug4 --roms ${PD_ROMS}/gog --headless --frames 1 --no-audio)
+    set_tests_properties(mslug4_roms_gog_alone PROPERTIES LABELS mslug4
+                         PASS_REGULAR_EXPRESSION "the Neo Geo system files are missing: sfix.sfix, 000-lo.lo")
+    if(EXISTS "${PD_ROMS}/decrypted/sprites.bin")
+        add_test(NAME mslug4_roms_gog_vs_mame
+                 COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/check_load.py
+                         --exe $<TARGET_FILE:mslug4> --roms ${PD_ROMS}
+                         --work ${CMAKE_CURRENT_BINARY_DIR}/mslug4_load_dump)
+        set_tests_properties(mslug4_roms_gog_vs_mame PROPERTIES LABELS mslug4)
+    endif()
+    # Scripted runs against MAME (tools/mame_run.py --game mslug4h, references in PD_ANALYSIS/phase2):
+    #   attract: power-on with empty NVRAM, BIOS and the attract demo;
+    #   start: a credit, START, the game's "How to play", soldier select, Mission 1 with a bot.
+    # RAM, palette and image on every VBlank / frame; <run>_known_vblank.txt lists the VBlanks that
+    # differ only in the stack, checked byte by byte.
+    foreach(base ${PD_ANALYSIS}/phase2/attract/attract ${PD_ANALYSIS}/phase2/start/start)
+        get_filename_component(run "${base}" NAME)
+        if(EXISTS "${base}_fingerprints.txt" AND EXISTS "${base}_date.txt" AND EXISTS "${base}_frames.txt")
+            file(READ "${base}_date.txt" date)
+            file(READ "${base}_frames.txt" frames)
+            string(STRIP "${date}" date)
+            string(STRIP "${frames}" frames)
+            set(known)
+            if(EXISTS "${base}_known_vblank.txt")
+                set(known --known-differences ${base}_known_vblank.txt)
+            endif()
+            add_test(NAME mslug4_${run}_vs_mame
+                     COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/verify_mission.py
+                             --exe $<TARGET_FILE:mslug4> --roms ${PD_ROMS}
+                             --inputs ${base}_inputs.txt --reference ${base}_fingerprints.txt
+                             --frames ${frames} --date ${date} ${known}
+                             --output ${CMAKE_CURRENT_BINARY_DIR}/mslug4_${run}_fingerprints_port.txt)
+            set_tests_properties(mslug4_${run}_vs_mame PROPERTIES LABELS mslug4)
+        endif()
+    endforeach()
 else()
     message(STATUS "Metal Slug 4 GOG test disabled: the user's copy (PD_ROMS/gog) is missing")
 endif()
