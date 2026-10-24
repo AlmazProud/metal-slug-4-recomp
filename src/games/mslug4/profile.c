@@ -1,19 +1,195 @@
-/* Metal Slug 4: the frontend's game profile. Empty for now: the cheats, debug options, red blood,
- * title logo, boss bar and Boss Rush stay off (n_windows == 0) until the game's addresses are
- * found and verified against MAME (Phase 4).
+/* Metal Slug 4: the frontend's game profile. It grows as the game's addresses are found and
+ * verified against MAME (docs/PHASE4_PROFILE.md); the frontend only shows the options whose
+ * addresses are here (menu.c). Addresses and hashes only, never game data.
+ *
+ * The program shares Metal Slug 3's and 5's engine: most routines are theirs at other addresses
+ * (tools/match_windows.py), `a5` is 0x108000 in the game code.
  */
 #include "profile.h"
 
 static const int SOUND_COUNT = 0;
 
+/* Weapons 0x00-0x12: the records at 0xC522E (weapon, class, sub-type, -, initial ammo, ammo per
+   extra pickup, announcer voice), Metal Slug 5's layout. Names checked in the game
+   (docs/PHASE4_PROFILE.md). */
+static const char *const WEAPONS[] = {
+    "Pistol", "Weapon 1", "Shotgun", "Rocket Launcher", "Flame Shot",
+    "Heavy Machine Gun", "Laser Shot", "Big Shotgun", "Big Rocket Launcher", "Big Flame Shot",
+    "Big Heavy Machine Gun", "Big Laser Shot", "Enemy Chaser", "Iron Lizard", "Drop Shot",
+    "Super Grenade", "Weapon 16", "Weapon 17", "Weapon 18",
+};
+
+/* Vehicles: the object type table (0x83F6E), found by spawning each type in Mission 1; names by
+   appearance. 0x00-0x0C put the player in the Metal Slug at once ("CANNON" on the HUD); 0x18 and
+   0x1C show the "IN" marker. 0x10 and 0x14 showed no vehicle and are left out. */
+static const CheatVehicle VEHICLES[] = {
+    {0x00, "Metal Slug"}, {0x04, "Metal Slug (variant 1)"}, {0x08, "Metal Slug (variant 2)"},
+    {0x0C, "Metal Slug (variant 3)"}, {0x18, "Walking machine"}, {0x1C, "Walking machine (red)"},
+};
+
+/* Transformations: player object $92 current form, $93 requested, requested by 0xC5046 from the
+   table 0xC508A: [(event * 2 + weapon class (0xC5032)) * 10 + form class (0xC5022)]. Food
+   (0xC5868) adds 0x1F0 to the table's +8 and at 0x780 asks for event 1 (fat, form 2); while fat
+   the counter runs down (0xC8D4A) and event 2 brings him back. Found by requesting each form:
+   3 the mummy (event 3, back with 4), 7 the zombie (event 7, back with 8), 8 the monkey (event
+   19, back with 20); 6 is the snowman (event 5: the frozen soldier, back by itself); 4/5 looked
+   normal; 9-11 kill the soldier; 12-15 hang the game. */
+static const CheatForm FORMS[] = {{0, "Normal"}, {2, "Fat"}, {3, "Mummy"}, {7, "Zombie"}, {8, "Monkey"}};
+static const uint8_t FORM_EVENTS[][2] = {{1, 2}, {3, 4}, {7, 8}, {19, 20}};
+
+/* The soldier select (Marco, Fio, Trevor, Nadia) and the internal characters (Marco 0, Trevor 1,
+   Nadia 2, Fio 3: Metal Slug 3's numbers with Trevor and Nadia for Tarma and Eri), checked by
+   picking each one. */
+static const char *const SOLDIERS[4] = {"Marco", "Fio", "Trevor", "Nadia"};
+static const uint8_t SOLDIER_INTERNAL[4] = {0, 3, 1, 2};
+
+/* Code that must be identical to the reference copy's for this profile to be used (profile.c). */
+static const ProfileWindow WINDOWS[] = {
+    {0x000868, 0x000882},     /* debug dips cleared on boot (0x876) */
+    {0x001BF4, 0x001C7C},     /* VBlank handler: shadow load meter (dip 0x0010, 0x1BF4 / 0x1C6A) */
+    {0x001E26, 0x001E52},     /* VBlank wait loop (wait_start/wait_end), VBlanks per logic cycle */
+    {0x003170, 0x0031AC},     /* developer mode check (0x3188) */
+    {0x0775A6, 0x0775B4},     /* BLOOD soft dip check (tst.b 0x10FD92) */
+    {0x0A8444, 0x0A84CC},     /* developer pause: SELECT + D (copy at $7002(a5)) */
+    {0x0A8E5A, 0x0A8E96},     /* "SET DEBUG DIP": item -> bit table (Metal Slug 5's) */
+    {0x00A746, 0x00A76C},     /* developer mode copied to 0x10F002 (0xA746); dips cleared without it */
+    {0x0B9C9C, 0x0B9D1C},     /* stage groups (0xB9CAE) and the record walk (0xB9CFE) */
+    {0x0B9D2E, 0x0B9D4C},     /* new game: start mission set to 0 (0xB9D44 -> 0xBA8DC) */
+    {0x0B9FB4, 0x0B9FE2},     /* mission controller: loads the mission to start at (0xB9FBE) */
+    {0x0BA182, 0x0BA18C},     /* section byte set to 0xFF once the mission runs (0xBA186) */
+    {0x0BA5D6, 0x0BA5F0},     /* next mission at the end of one (0xBA5DE) */
+    {0x0BA8DC, 0x0BA8F8},     /* the start mission setter */
+    {0x0C4BC0, 0x0C4BD0},     /* player tables: 0x10EDEA, 0x10EDFA */
+    {0x0C522E, 0x0C5446},     /* weapon records (0xC522E, 10 bytes), the give routine (0xC52EC: D0
+                                 player, D1 weapon) and its pickup: ammo +0xC, weapon +4, previous +5 */
+    {0x081D0E, 0x081E08},     /* status object: character $8C, lives $8D (from the BIOS HERO setting) */
+    {0x067A26, 0x067A76},     /* score: player 1 at 0x1066D8 (8 BCD digits) */
+};
+
 const GameProfile game_profile = {
     .title = "METAL SLUG 4",
     .subtitle = "",
-    .windows = NULL,
-    .n_windows = 0,
-    .windows_sha256 = "",
-    .vehicles = NULL,
-    .n_vehicles = 0,
+    .windows = WINDOWS,
+    .n_windows = (int)(sizeof WINDOWS / sizeof WINDOWS[0]),
+    .windows_sha256 = "cdc3d2801bf4b668ee23afedb493d96dc0305609aba253267fd59738d1037c13",
+    .vehicles = VEHICLES,
+    .n_vehicles = (int)(sizeof VEHICLES / sizeof VEHICLES[0]),
     .sounds = NULL,
     .n_sounds = &SOUND_COUNT,
+
+    /* Debug dips (word 0x10F000, cleared on boot at 0x876): only with the BIOS development mode
+     * (0x10FE80, checked at 0x3188); the game copies the mode to 0x10F002 ($7002(a5), 0xA746). */
+    .dips_word = 0x10F000,
+    .devmode_word = 0x10FE80,
+    .devmode_copy_word = 0x10F002,
+    /* Bits from the developers' "SET DEBUG DIP" menu: its item -> bit table (0xA8E5A) is Metal Slug
+     * 5's, byte for byte. */
+    .dips = {
+        .invincible = 0x8000,              /* MUTEKI */
+        .infinite_bombs = 0x0004,          /* unlimited grenades */
+        .infinite_ammo = 0x0008,           /* unlimited POW gun */
+        .d_kills_all = 0x0001,             /* D button: every enemy dies */
+        .boxes = 0x2000 | 0x4000 | 0x0080, /* VIEW ATTACK / BODY / PUSH RECT */
+        .info = 0x0100,                    /* VIEW INFOMATION */
+        .ground = 0x0800 | 0x1000,         /* VIEW GEO SCROLL A / B */
+        .pa_point = 0x0002,                /* VIEW PA POINT */
+        .pause_anytime = 0x0200,           /* ITSUDEMO PAUSE */
+        /* No menu entry: the VBlank handler turns the shadow on (0x3A0011, 0x1C00) while it works
+         * and off at the end (0x3A0001, 0x1C76). */
+        .cpu_meter = 0x0010,
+    },
+
+    /* Developer menu: 0xA8444 (developer mode copy $7002(a5) on) asks for the pause when the
+     * player's SELECT is held and D is newly pressed, as in Metal Slug 5. */
+    .dev_menu = DEV_MENU_SELECT_D,
+
+    /* Soft dips (header 0x1536, USA): HERO, then CONTINUE, DIFFICULTY, PLAY TIME, DEMO SOUND, PLAY
+     * MANUAL, CREDIT/LEVEL, NEXT, LANGUAGE, BLOOD; the BIOS keeps the options from 0x10FD8A, so
+     * PLAY MANUAL is 0x10FD8E and BLOOD 0x10FD92 (read by 0x775A6). */
+    .blood_word = 0x10FD92u,
+    .blood_mask = 0xFF00u,
+    .manual_word = 0x10FD8Eu,
+    .manual_mask = 0xFF00u,
+
+    /* Mission and section to start at: 0x10ED62 / 0x10ED63 ($6D62(a5)). A new game sets both to 0
+     * (0xB9D44); the mission controller (object 0x100B5C) loads them at 0xB9FBE into its $70 / $71.
+     * Mission bytes 0-5; 6 is the endings, 7 and 8 the attract demos, 9 "How to play". */
+    .start_mission = 0x10ED62u,
+    .missions = 6,
+    .mission_now = 0x100BCCu,
+    .score_p1 = 0x1066D8u,
+
+    /* Players. Tables 0x10EDEA / 0x10EDFA ($6DEA(a5)), 0x10 bytes per player: +2 shot counter, +3
+     * sub-type, +4 weapon, +5 previous weapon, +7 bombs, +8 food, +0xC ammo (word, 0xFFFF =
+     * infinite). Player objects 0x100CBC / 0x100D6C ($80: their table). Status objects 0x1009FC /
+     * 0x100AAC: $8C character, $8D lives. */
+    .player_table = 0x10EDEAu,
+    .table_stride_byte = 0x10,
+    .table_stride_word = 0x10,
+    .table_shots = 2,
+    .table_subtype = 3,
+    .table_weapon = 4,
+    .table_bombs = 7,
+    .table_ammo = 0xC,
+    .player1_object = 0x100CBCu,
+    .player2_object = 0x100D6Cu,
+    .object_table_ptr = 0x80,
+    .player1_soldier = 0x100A88u,
+    .player2_soldier = 0x100B38u,
+    .soldier_internal = 1,
+    .soldier_names = SOLDIERS,
+    .soldier_internal_of = SOLDIER_INTERNAL,
+    .player1_lives = 0x100A89u,
+    .player2_lives = 0x100B39u,
+    /* Weapons: the cheat calls the game's own routine 0xC52EC (D0 player, D1 weapon). Its pickup
+     * keeps the previous weapon at +5 and clears the player object's $94. */
+    .weapons = sizeof WEAPONS / sizeof WEAPONS[0],
+    .weapon_names = WEAPONS,
+    .give_routine = 0xC52ECu,
+    .rom_weapon_subtype = 0xC5230u,
+    .rom_weapon_subtype_stride = 10,
+    .rom_weapon_ammo = 0xC5232u,
+    .rom_weapon_ammo_stride = 10,
+    .object_pickup_flag = 0x94,
+    .table_previous_weapon = 5,
+
+    .object_form = 0x92,
+    .forms = FORMS,
+    .n_forms = (int)(sizeof FORMS / sizeof FORMS[0]),
+    .form_table = 0xC508Au,
+    .form_weapon_class = 0xC5032u,
+    .form_class = 0xC5022u,
+    .form_weapon_classes = 2,
+    .form_classes = 10,
+    .form_events = FORM_EVENTS,
+    .form_normal_first = 1,
+    .fat_class = 1,
+    .table_food = 8,
+    .fat_food = 0x780,
+    .form_help = "Fat lasts until you die or change it",
+
+    /* Stage object records: routine 0x84B32 (commands 8-15, Metal Slug 3's 0x16106; A0 = record,
+     * A6 = the stage's object root 0x100C0C). Command 8: [8, length, group, flags, x, y, type*4
+     * (table 0x83F6E), parameters...]. x and y in the scroll layer's coordinates ($6CA2(a5) =
+     * 0x10ECA2); the object's screen position is at +0x3C / +0x40, as in Metal Slug 3. */
+    .spawn_routine = 0x84B32u,
+    .spawn_parent = 0x100C0Cu,
+    .spawn_head = {0x08, 0x0A, 0xFF, 0x00},
+    .spawn_x_at = 4,
+    .spawn_y_at = 6,
+    .spawn_type_at = 8,
+    .spawn_layer = 0x10ECA2u,
+    .object_position = 0x3C,
+    .spawn_x = 0x70,
+    .spawn_y = 0,
+
+    /* Fast boot: frames to the game's first image (checked in Phase 4). */
+    .boot_frames = 301,
+
+    /* Main loop: waits at 0x1E26-0x1E2E (cmp.b -$7F6D(a5),d0: VBlanks since the last logic cycle
+     * against the game's threshold) and exits at 0x1E30, storing the count at -$7F6A(a5) =
+     * 0x100096. */
+    .wait_start = 0x1E26u,
+    .wait_end = 0x1E30u,
+    .ram_frames_per_tick = 0x0096u,
 };

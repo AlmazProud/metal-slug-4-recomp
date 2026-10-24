@@ -114,13 +114,22 @@ int cheats_set_lives(int player, int n)
 }
 
 /* The soldier select index (Marco, Eri, Tarma, Fio) and the internal character number
-   (Marco 0, Tarma 1, Eri 2, Fio 3); the table is its own inverse. */
-static const uint8_t INTERNAL[4] = {0, 2, 1, 3};
+   (Marco 0, Tarma 1, Eri 2, Fio 3), unless the profile gives its own (soldier_internal_of). */
+static const uint8_t DEFAULT_INTERNAL[4] = {0, 2, 1, 3};
+#define INTERNAL (game_profile.soldier_internal_of ? game_profile.soldier_internal_of : DEFAULT_INTERNAL)
+
+const char *cheats_soldier_name(int soldier)
+{
+    return (game_profile.soldier_names ? game_profile.soldier_names : CHEATS_SOLDIER_NAME)[soldier & 3];
+}
 
 int cheats_soldier(int player)
 {
     int v = *ram8((player & 1) ? game_profile.player2_soldier : game_profile.player1_soldier) & 3;
-    return game_profile.soldier_internal ? INTERNAL[v] : v;
+    if (!game_profile.soldier_internal) return v;
+    for (int s = 0; s < 4; s++)
+        if (INTERNAL[s] == v) return s;
+    return 0;
 }
 
 int cheats_set_soldier(int player, int soldier)
@@ -163,7 +172,9 @@ static int table_form(int p, int event)
     uint32_t w = *ram8(field8(p, game_profile.table_weapon));
     int wclass = rom8(game_profile.form_weapon_class + (w < game_profile.weapons ? w : 0));
     int fclass = rom8(game_profile.form_class + *ram8(obj + game_profile.object_form));
-    return rom8(game_profile.form_table + (uint32_t)((event * 3 + wclass) * 4 + fclass));
+    int wclasses = game_profile.form_weapon_classes ? game_profile.form_weapon_classes : 3;
+    int fclasses = game_profile.form_classes ? game_profile.form_classes : 4;
+    return rom8(game_profile.form_table + (uint32_t)((event * wclasses + wclass) * fclasses + fclass));
 }
 
 /* Normal form is 0 with the pistol and 1 with (most) other weapons: a table in the ROM. */
@@ -171,6 +182,17 @@ static int normal_form(int p)
 {
     uint32_t w = *ram8(field8(p, game_profile.table_weapon));
     return rom8(game_profile.rom_weapon_form + (w < game_profile.weapons ? w : 0));
+}
+
+/* With the form table: the event that asks for `form` (back to normal: the current form's own
+   way back, form_events). */
+static int form_event(int form, int now)
+{
+    if (!game_profile.form_events) return form == FORM_FAT ? 1 : 2;
+    for (int i = 1; i < game_profile.n_forms; i++)
+        if (game_profile.forms[i].form == (form == FORM_NORMAL ? form_kind(now) : form))
+            return game_profile.form_events[i - 1][form == FORM_NORMAL ? 1 : 0];
+    return 2;
 }
 
 int cheats_set_form(int player, int form)
@@ -182,7 +204,7 @@ int cheats_set_form(int player, int form)
     if (game_profile.form_normal_first && now > FORM_FAT) form = FORM_NORMAL;      /* 0 / 1 normal, 2 fat */
     keep_fat[p] = form == FORM_FAT;
     poke16(field16(p, game_profile.table_food), keep_fat[p] ? game_profile.fat_food : 0);
-    int request = game_profile.form_table ? table_form(p, form == FORM_FAT ? 1 : 2) : form == FORM_NORMAL ? normal_form(p) : form;
+    int request = game_profile.form_table ? table_form(p, form_event(form, now)) : form == FORM_NORMAL ? normal_form(p) : form;
     poke8(obj + game_profile.object_form + 1, (uint8_t)request);
     cheats_apply();
     return 1;

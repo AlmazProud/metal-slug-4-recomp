@@ -136,6 +136,10 @@ typedef struct {
        Fio 3), used from the next life; 0 (Metal Slug X): the soldier select index, with the
        internal character in the byte before it and in the player object. */
     int soldier_internal;
+    /* The soldiers in the soldier select's order and the internal character of each (NULL: Marco,
+       Eri, Tarma, Fio and 0, 2, 1, 3; Metal Slug 4: Marco, Fio, Trevor, Nadia and 0, 3, 1, 2). */
+    const char *const *soldier_names;
+    const uint8_t *soldier_internal_of;
     /* In game without game_state: BIOS player status (0x10FDB6 + player) = 1 and the player
        object's pointer at object_table_ptr pointing to its table. */
     uint32_t object_table_ptr;
@@ -153,8 +157,13 @@ typedef struct {
        requested form is form_table[(event * 3 + weapon class) * 4 + form class], with the weapon
        class from form_weapon_class (a byte per weapon) and the current form's class from
        form_class (a byte per form). Event 1 makes the soldier fat (form class fat_class), event 2
-       brings him back to normal (Metal Slug 5: 0x1C238, 0x1C1C4, 0x1C1D8). */
+       brings him back to normal (Metal Slug 5: 0x1C238, 0x1C1C4, 0x1C1D8). form_weapon_classes and
+       form_classes replace the 3 and the 4 (0: Metal Slug 5's; Metal Slug 4: 2 and 10). */
     uint32_t form_table, form_weapon_class, form_class;
+    uint8_t form_weapon_classes, form_classes;
+    /* With the form table: form_events[i - 1] for each forms[i] (i >= 1), the event that requests
+       it and the event that brings it back to normal (NULL: fat only, events 1 and 2). */
+    const uint8_t (*form_events)[2];
     uint8_t fat_class;
     uint32_t table_food;
     const char *form_help;

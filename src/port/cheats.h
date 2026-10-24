@@ -62,6 +62,7 @@ int cheats_spawn_type(int type);         /* any stage object type (type*4), for 
 int cheats_weapons(void);                            /* game_profile.weapons */
 const char *cheats_weapon_name(int weapon);          /* English; NULL if unused */
 extern const char *const CHEATS_SOLDIER_NAME[4];
+const char *cheats_soldier_name(int soldier);      /* the profile's names, else CHEATS_SOLDIER_NAME */
 
 /* Developer menu: queue SELECT held + D twice (pause, then menu). cheats_input() adds the
  * pending presses to player 1's inputs each frame (system = NG_START/NG_SELECT bits, joy = NG_*). */

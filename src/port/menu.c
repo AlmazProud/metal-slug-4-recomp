@@ -571,7 +571,7 @@ static void value(int op, char *b, size_t n)
     case OP_GIVE_WEAPON: snprintf(b, n, "%s", T(cheats_weapon_name(cheat_weapon))); break;
     case OP_LIVES: snprintf(b, n, "%d", cheat_lives); break;
     case OP_VEHICLE: snprintf(b, n, "%s", T(game_profile.vehicles[cheat_vehicle].name)); break;
-    case OP_SOLDIER: snprintf(b, n, "%s", CHEATS_SOLDIER_NAME[cheats_soldier(cheat_player)]); break;
+    case OP_SOLDIER: snprintf(b, n, "%s", cheats_soldier_name(cheats_soldier(cheat_player))); break;
     case OP_FORM: snprintf(b, n, "%s", T(game_profile.forms[form_index()].name)); break;
     case OP_INVINCIBLE: case OP_INF_BOMBS: case OP_INF_AMMO: case OP_D_KILLS:
     case OP_BOXES: case OP_INFO: case OP_GROUND: case OP_CPU_METER: case OP_PA_POINT: case OP_PAUSE_ANY:

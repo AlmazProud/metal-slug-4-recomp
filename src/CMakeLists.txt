@@ -189,7 +189,19 @@ if(EXISTS "${PD_ROMS}/gog/p1.bin")
     #   start: a credit, START, the game's "How to play", soldier select, Mission 1 with a bot.
     # RAM, palette and image on every VBlank / frame; <run>_known_vblank.txt lists the VBlanks that
     # differ only in the stack, checked byte by byte.
-    foreach(base ${PD_ANALYSIS}/phase2/attract/attract ${PD_ANALYSIS}/phase2/start/start)
+    # Phase 4 (docs/PHASE4_PROFILE.md): phase4/debug/* the same game with the developer mode,
+    # debug dips or red blood (<run>_env.txt: PD_DEVMODE, PD_DIPS, PD_BLOOD...), phase4/missions/*
+    # started at another mission (<run>_poke.txt: PD_POKE).
+    set(ms4_runs ${PD_ANALYSIS}/phase2/attract/attract ${PD_ANALYSIS}/phase2/start/start)
+    file(GLOB ms4_phase4_runs ${PD_ANALYSIS}/phase4/debug/*_fingerprints.txt
+                              ${PD_ANALYSIS}/phase4/missions/mission*_fingerprints.txt)
+    foreach(fp ${ms4_phase4_runs})
+        if(NOT fp MATCHES "_replay_fingerprints\\.txt$")
+            string(REGEX REPLACE "_fingerprints\\.txt$" "" base "${fp}")
+            list(APPEND ms4_runs ${base})
+        endif()
+    endforeach()
+    foreach(base ${ms4_runs})
         get_filename_component(run "${base}" NAME)
         if(EXISTS "${base}_fingerprints.txt" AND EXISTS "${base}_date.txt" AND EXISTS "${base}_frames.txt")
             file(READ "${base}_date.txt" date)
@@ -200,15 +212,66 @@ if(EXISTS "${PD_ROMS}/gog/p1.bin")
             if(EXISTS "${base}_known_vblank.txt")
                 set(known --known-differences ${base}_known_vblank.txt)
             endif()
+            set(env)
+            if(EXISTS "${base}_poke.txt")
+                file(READ "${base}_poke.txt" poke)
+                string(STRIP "${poke}" poke)
+                string(REPLACE ";" "\;" poke "${poke}")     # several writes: kept in one variable
+                set(env "PD_POKE=${poke}")
+            endif()
+            if(EXISTS "${base}_env.txt")                  # PD_DEVMODE, PD_DIPS... (mame_run.py)
+                file(STRINGS "${base}_env.txt" run_env)
+                list(APPEND env ${run_env})
+            endif()
             add_test(NAME mslug4_${run}_vs_mame
                      COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/verify_mission.py
                              --exe $<TARGET_FILE:mslug4> --roms ${PD_ROMS}
                              --inputs ${base}_inputs.txt --reference ${base}_fingerprints.txt
                              --frames ${frames} --date ${date} ${known}
                              --output ${CMAKE_CURRENT_BINARY_DIR}/mslug4_${run}_fingerprints_port.txt)
-            set_tests_properties(mslug4_${run}_vs_mame PROPERTIES LABELS mslug4)
+            set_tests_properties(mslug4_${run}_vs_mame PROPERTIES LABELS mslug4 ENVIRONMENT "${env}")
         endif()
     endforeach()
+    # Phase 4: the cheats (PD_CHEAT) against a MAME run that writes the same bytes at the same
+    # moments (PD_POKE in cheats_poke.txt, logged by PD_SPAWN_POKES): the Heavy Machine Gun and the
+    # Enemy Chaser through the game's own routine, 63 bombs, 7 lives, Fio.
+    set(ch ${PD_ANALYSIS}/phase4/cheats/cheats)
+    if(EXISTS "${ch}_fingerprints.txt")
+        file(READ "${ch}_date.txt" date)
+        file(READ "${ch}_frames.txt" frames)
+        string(STRIP "${date}" date)
+        string(STRIP "${frames}" frames)
+        add_test(NAME mslug4_cheats_vs_mame
+                 COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/verify_mission.py
+                         --exe $<TARGET_FILE:mslug4> --roms ${PD_ROMS}
+                         --inputs ${ch}_inputs.txt --reference ${ch}_fingerprints.txt
+                         --frames ${frames} --date ${date}
+                         --output ${CMAKE_CURRENT_BINARY_DIR}/mslug4_cheats_fingerprints_port.txt)
+        set_tests_properties(mslug4_cheats_vs_mame PROPERTIES LABELS mslug4
+                             ENVIRONMENT "PD_CHEAT=6700,weapon,0,5\;7300,weapon,0,12\;7500,bombs,0,63\;7650,lives,0,7\;7800,soldier,0,1")
+    endif()
+    # The vehicle cheat (phase4/vehicles): the Metal Slug spawned at frame 6700; the form cheat
+    # (phase4/forms): fat, the mummy, the zombie and the monkey, each followed by normal. The MAME
+    # runs write the RAM bytes the cheats changed (PD_SPAWN_POKES) at the same frames.
+    function(pd_mslug4_cheat_run run cheat)
+        set(b ${PD_ANALYSIS}/phase4/${run}/${run})
+        if(EXISTS "${b}_fingerprints.txt")
+            file(READ "${b}_date.txt" date)
+            file(READ "${b}_frames.txt" frames)
+            string(STRIP "${date}" date)
+            string(STRIP "${frames}" frames)
+            add_test(NAME mslug4_${run}_vs_mame
+                     COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/verify_mission.py
+                             --exe $<TARGET_FILE:mslug4> --roms ${PD_ROMS}
+                             --inputs ${b}_inputs.txt --reference ${b}_fingerprints.txt
+                             --frames ${frames} --date ${date}
+                             --output ${CMAKE_CURRENT_BINARY_DIR}/mslug4_${run}_fingerprints_port.txt)
+            string(REPLACE ";" "\;" cheat "${cheat}")
+            set_tests_properties(mslug4_${run}_vs_mame PROPERTIES LABELS mslug4 ENVIRONMENT "PD_CHEAT=${cheat}")
+        endif()
+    endfunction()
+    pd_mslug4_cheat_run(vehicles "6700,vehicle,0,0")
+    pd_mslug4_cheat_run(forms "6700,form,0,2;6900,form,0,0;7150,form,0,3;7450,form,0,0;7750,form,0,7;8050,form,0,0;8350,form,0,8;8650,form,0,0")
     # Phase 3: games recorded by hand in MAME (grabar_partida.bat, empty NVRAM), replayed by
     # mame_run.py --replay --name NAME into PD_ANALYSIS/phase3/play: mslug4_play_<NAME>_vs_mame.
     file(GLOB played ${PD_ANALYSIS}/phase3/play/*_replay_fingerprints.txt)
