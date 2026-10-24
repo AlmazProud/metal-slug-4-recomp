@@ -5,10 +5,12 @@
  * Mystics (Data\rom\*.bin): MAME's regions after MAME's own transformations, the sprites in packed
  * pixels; the `mslug4h` set rebuilt from it matches `mame -listxml mslug4h` (MAME 0.289) by CRC-32
  * and SHA-1 (docs/ROM_MAP.md). The MAME set's program is not encrypted; its sprites and fix
- * (CMC50), M1 (CMC50, keyed by the data) and V ROMs (PCM2) are. Phase 1: both copies are
- * recognized and reported, not loaded.
+ * (CMC50), M1 (CMC50, keyed by the data) and V ROMs (PCM2) are: crypt.c decrypts them at load
+ * (docs/PHASE5_LOADER.md). Both copies load, with the same bytes.
  */
 #include "neogeo.h"
+
+extern const NgMameCrypt MSLUG4_CRYPT;     /* crypt.c */
 
 static const NgMameFile MAME[] = {
     {NG_MAME_P, 0, "263-ph1.p1", 1048576, 0xc67f5c8d, "12af74964843f103520d9f0825069ea2f67eeb2f", "gog"},
@@ -42,6 +44,7 @@ static const NgGame GAME = {
     .gog_p1_sha256 = "94f28c85d0909a6d04f5428b7bc0758d24dc55b236b88c19f933b8c23d219d1a",
     .mame = MAME,
     .n_mame = (int)(sizeof MAME / sizeof MAME[0]),
+    .crypt = &MSLUG4_CRYPT,               /* decrypted at load (docs/PHASE5_LOADER.md) */
     .mame_encrypted = 1,
     .cart = NG_CART_STANDARD,           /* P2 banking at 0x2FFFF0-0x2FFFFF, no protection chip */
     .fix_bank = NG_FIX_BANK_ROWS,
