@@ -97,7 +97,8 @@ repo\
                 rebuild_set.py, mame\oracle_phase0.lua
   tests\        differential\, lockstep\, loader\
   external\     Musashi, ymfm, z80.h, stb_truetype, fonts
-  docs\         ROM_MAP.md, PHASE1_IMPORT.md; ADPCM_B.md and QOL_FEATURES.md (shared code)
+  docs\         ROM_MAP.md, PHASE1_IMPORT.md, PHASE2_HARDWARE.md, PHASE3_RECOMP.md,
+                PHASE3_COVERAGE.md, functions_p1.csv; ADPCM_B.md and QOL_FEATURES.md (shared code)
 ```
 
 Build (environment active): `cmake -S repo -B repo\build -G Ninja -DCMAKE_BUILD_TYPE=Release`,
@@ -125,10 +126,32 @@ Oracle: `mame mslug4h -bios us -rompath "<workspace>\roms"` (the rebuilt set in 
 | 0. Reconnaissance (Code Mystics format, encryption schemes, black-box decryption, rebuilt `mslug4h` set, ROM map, P2 banks, developer menu, oracle) | **Closed** (2026-10-23). See `docs/ROM_MAP.md`. All 11 game ROMs of `mslug4h` rebuilt from GOG (CRC-32 and SHA-1), the M1 included. |
 | 1. Import Metal Slug 5's runtime and frontend with an empty `mslug4h` descriptor and profile (four executables) | **Closed** (2026-10-23). See `docs/PHASE1_IMPORT.md`. `ctest`: 122/122 (interpreter-only 116/116). |
 | 2. Metal Slug 4 hardware in the interpreter (minimal GOG loader, P2 banks, decrypted M1, PCM2) | **Closed** (2026-10-23). See `docs/PHASE2_HARDWARE.md`. Image and RAM identical to MAME (attract: 224 known VBlanks, 4 known images; start: no difference); audio as Metal Slug 5's (0.92 / 0.94), reported. `ctest`: 126/126 (interpreter-only 120/120). |
-| 3. Analysis and recompilation | - |
+| 3. Analysis and recompilation | **Closed**, pending approval (2026-10-23). See `docs/PHASE3_RECOMP.md` and `docs/PHASE3_COVERAGE.md`. No code runs from the P2 banks; P1 and the BIOS recompiled; lockstep identical; the user's game `partida1` identical to MAME (7 known stack-only VBlanks). `ctest`: 129/129 (interpreter-only 121/121). |
 | 4. Profile and frontend (boss bar and Boss Rush as a stage of their own) | - |
 | 5. Universal loader (GOG, the MAME set decrypted at load) | - |
 | 6. Publishing (`AlmazProud/metal-slug-4-recomp`) | - |
+
+### Phase 3: result
+
+Details in `docs/PHASE3_RECOMP.md`.
+
+- **The 68000 files:** `tools/make_reference.py --mslug4 analysis/phase3/program` writes
+  `mslug4_game_m68k` (GOG's `p1.bin`, equal to MAME's `maincpu`) and `mslug4_bios_m68k` (the us
+  BIOS) **outside `roms\`** (there the loader would take `mslug4_*` for a DotEmu copy). The
+  analysis, the recompiler and the lockstep read them.
+- **Coverage** (`analysis/phase3/coverage_*.json`): playback of the attract and start recordings,
+  the bot (180 s) and the user's `partida1`: 62 965 P1 addresses, all reached by the static
+  analysis; 0 code bytes on data MAME read; no code from the P2 banks, 644 RAM addresses (the ROM
+  checksum) interpreted.
+- **Recompiled `mslug4.exe`:** 116 297 instructions, 0 unsupported; `partida1` in 44 s (143 s in
+  the interpreter). Same results against MAME as the interpreter.
+- **Lockstep:** `lockstep_mslug4_reset` and `_game` (frame 8 000 of the start run,
+  `analysis/phase3/state_start_f8000.bin`): every point verified, final memory identical.
+- **The user's game:** `partida1` (13.1 min, `analysis/phase3/play`, test
+  `mslug4_play_partida1_vs_mame`): images identical on all 46 540 frames; 7 known VBlanks, stack
+  only (`partida1_known_vblank.txt`).
+- Tools: `coverage.py --game mslug4h --p2-banks 4` (defaults), `analyze68k.py --game mslug4`
+  (defaults); the generated program now depends on the listings and the coverage files.
 
 ### Phase 2: result
 

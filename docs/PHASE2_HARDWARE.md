@@ -1,6 +1,6 @@
 # Phase 2: Metal Slug 4 hardware in the interpreter
 
-**State:** closed, pending approval. Image and RAM identical to MAME (known residue listed); the
+**State:** closed (2026-10-23; the audio deferred by the user). Image and RAM identical to MAME (known residue listed); the
 audio is the known difference of Metal Slug 5 (below), reported to the user before going further.
 
 `mslug4.exe` (interpreter, no recompiled code yet) loads the user's GOG copy and runs identical to
@@ -88,6 +88,6 @@ a generic fix would serve Metal Slug 5 too.
 
 ## Pending
 
-- The audio (above): the user's decision.
+- The audio (above): deferred by the user, as in Metal Slug 5.
 - A longer game (Phase 3's recordings) and the other missions (Phase 4).
 - GOG-only installs: the system files (Phase 5).
