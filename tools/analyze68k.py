@@ -1,5 +1,5 @@
-"""Static analysis of a game's 68000 code (--game: mslug3 or mslugx; Metal Slug X Phase 1,
-Metal Slug 3 Phase 3).
+"""Static analysis of a game's 68000 code (--game: mslug4, mslug5, mslug3 or mslugx; Metal Slug X
+Phase 1, Metal Slug 3, 5 and 4 Phase 3).
 
 Recursive disassembly (Capstone) over the CPU view of P1 and of the BIOS, rooted at:
   - the 68000 vectors of P1 (0x000-0x0FF),
@@ -297,8 +297,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     root = Path(os.environ.get("PD_ROOT", Path(__file__).resolve().parents[2]))
     repo = Path(__file__).resolve().parents[1]
-    ap.add_argument("--roms", type=Path, default=root / "roms")
-    ap.add_argument("--game", default="mslug3", help="DotEmu file prefix (mslug3, mslugx)")
+    ap.add_argument("--roms", type=Path, default=root / "analysis" / "phase3" / "program",
+                    help="folder with <game>_game_m68k and _bios_m68k (Metal Slug 4: "
+                         "tools/make_reference.py --mslug4)")
+    ap.add_argument("--game", default="mslug4", help="file prefix (mslug4, mslug5, mslug3, mslugx)")
     ap.add_argument("--coverage", type=Path, nargs="+", default=[root / "analysis" / "coverage.json"],
                     help="one or more coverage JSON files (tools/coverage.py); they are merged")
     ap.add_argument("--report", type=Path, default=repo / "docs" / "PHASE3_COVERAGE.md")

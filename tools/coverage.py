@@ -62,7 +62,8 @@ def region(pc: int) -> str:
 
 
 class Accumulator:
-    def __init__(self, sma: bool, pvc: bool = False) -> None:
+    def __init__(self, sma: bool, pvc: bool = False, p2_banks: int = 8) -> None:
+        self.p2_banks = p2_banks
         self.pcs: dict[str, set] = defaultdict(set)
         self.indirect: set[tuple[int, int, int]] = set()   # (source, target, bank)
         self.bank = 0                                      # bank at reset: 0 / P2 offset 0
@@ -75,6 +76,8 @@ class Accumulator:
             for line in f:
                 if line.startswith("BANK "):
                     self.bank = int(line[5:])
+                    if self.bank >= self.p2_banks:
+                        self.bank = 0
                     self.window = f"p2_banco{self.bank}"
                     continue
                 if line.startswith(("SMA ", "PVC ")):
@@ -112,7 +115,10 @@ def tools_dir(root: Path) -> Path:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     root = Path(os.environ.get("PD_ROOT", Path(__file__).resolve().parents[2]))
-    ap.add_argument("--game", default="mslug5", help="MAME machine (mslug5, mslug3, mslugx)")
+    ap.add_argument("--game", default="mslug4h", help="MAME machine (mslug4h, mslug5, mslug3, mslugx)")
+    ap.add_argument("--p2-banks", type=int, default=4,
+                    help="P2's 1 MB banks: a bank select value outside them shows bank 0, as bus.c's "
+                         "p2_bank (Metal Slug 4: 4; the boot writes 7)")
     ap.add_argument("--seconds", type=int, default=180, help="emulated seconds")
     ap.add_argument("--output", type=Path, default=root / "analysis" / "coverage.json")
     ap.add_argument("--no-bot", action="store_true")
@@ -158,7 +164,7 @@ def main() -> int:
     proc = subprocess.Popen(cmd, cwd=mame.parent, env=env,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    acc = Accumulator(sma is not None, PVC)
+    acc = Accumulator(sma is not None, PVC, a.p2_banks)
     done = 0
     start = time.time()
 

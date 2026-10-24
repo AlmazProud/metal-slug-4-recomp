@@ -8,6 +8,7 @@ DotEmu layout of the PC releases, as Metal Slug X's and Metal Slug 3's GOG files
 
 Usage:
     python tools/make_reference.py [--roms DIR] [--sm1]
+    python tools/make_reference.py [--roms DIR] --mslug4 OUT   (Metal Slug 4, below)
 
 Writes <roms>/mslug5_game_m68k, _game_sfix, _tiles, _game_z80, _adpcm, _bios_m68k, _bios_sfix,
 _zoom_table and prints their SHA-256 (src/games/mslug5/game.c holds them). Every conversion is
@@ -62,11 +63,31 @@ def sprites_region_to_dotemu(region: bytes) -> bytes:
     return t.astype(np.uint8).tobytes()
 
 
+def mslug4_program(roms: Path, out: Path) -> int:
+    """Metal Slug 4: only the 68000 files the analysis and the recompiler read (the GOG copy loads
+    as it is). <out>/mslug4_game_m68k is GOG's p1.bin (MAME's maincpu region, checked against
+    <roms>/decrypted/maincpu.bin) and mslug4_bios_m68k the us BIOS (sp-u2.sp1). They live outside
+    <roms>: there, the loader would take the mslug4_* names for a DotEmu copy."""
+    p1, maincpu = (roms / "gog" / "p1.bin").read_bytes(), (roms / "decrypted" / "maincpu.bin").read_bytes()
+    print(f"p1.bin = maincpu.bin: {'OK' if p1 == maincpu else 'FAILED'}")
+    if p1 != maincpu:
+        return 1
+    out.mkdir(parents=True, exist_ok=True)
+    for n, d in {"game_m68k": p1, "bios_m68k": (roms / "neogeo" / "sp-u2.sp1").read_bytes()}.items():
+        (out / f"mslug4_{n}").write_bytes(d)
+        print(f"{out / f'mslug4_{n}'}: {len(d)} bytes, SHA-256 {hashlib.sha256(d).hexdigest()}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--roms", type=Path, default=Path(os.environ.get("PD_ROMS") or ROOT / "roms"))
     ap.add_argument("--sm1", action="store_true")
+    ap.add_argument("--mslug4", type=Path, metavar="OUT",
+                    help="Metal Slug 4: write the 68000 reference files to OUT instead")
     a = ap.parse_args()
+    if a.mslug4:
+        return mslug4_program(a.roms, a.mslug4)
     dec, neo = a.roms / "decrypted", a.roms / "neogeo"
     rd = lambda p: p.read_bytes()
 
