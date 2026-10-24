@@ -38,7 +38,9 @@ enum { NG_START = 1 << 0, NG_SELECT = 1 << 1, NG_COIN = 1 << 2 };
  * Descriptors hold hashes and addresses only, never game data. */
 /* NG_CART_PVC: the NEO-PVC chip (Metal Slug 5): 8 KB of RAM over the top of the P2 window, whose
    bytes 2FFFF0-2FFFF3 select the P2 window (bus.c, docs/PHASE2_HARDWARE.md). */
-enum { NG_CART_ALTERA_MSLUGX = 1, NG_CART_SMA = 2, NG_CART_PVC = 3 };
+/* NG_CART_STANDARD: no protection chip, the P2 bank selected by a write to 2FFFF0-2FFFFF (Metal
+   Slug 4). */
+enum { NG_CART_ALTERA_MSLUGX = 1, NG_CART_SMA = 2, NG_CART_PVC = 3, NG_CART_STANDARD = 4 };
 /* Fix layer banking of cartridges with more than 128 KB of fix tiles (CMC chips). ROWS: one
  * 128 KB bank per tile row, taken from a table the game writes at VRAM 0x7500/0x7580 (the
  * "Garou" type in MAME's documentation; Garou and Metal Slug 3). */
@@ -93,8 +95,7 @@ typedef struct {
     const char *project;     /* "metal-slug-x-recomp" */
     const char *gog_id;      /* GOG Galaxy registry id */
     NgDotEmuFile dotemu[NG_DOTEMU_ROLES];   /* names NULL: none (with no PC release: reference files) */
-    NgDotEmuFile codemystics[NG_CM_ROLES];  /* names NULL: none. Recognized and reported, not
-                                               loaded yet (Metal Slug 4, Phase 2) */
+    NgDotEmuFile codemystics[NG_CM_ROLES];  /* names NULL: none (Metal Slug 4's GOG release) */
     const char *gog_p1_sha256;   /* first MB of the 68000 program (file byte order); NULL: none */
     const NgMameFile *mame;  /* NULL: MAME sets of this game are not supported */
     int n_mame;
@@ -122,7 +123,7 @@ extern const NgGame *const ng_game;
 static inline int ng_has_pc_release(void) { return ng_game->gog_id && ng_game->gog_id[0]; }
 
 /* ------------------------------------------------------------------ ROMs */
-enum { NG_FORMAT_DOTEMU = 1, NG_FORMAT_MAME = 2 };
+enum { NG_FORMAT_DOTEMU = 1, NG_FORMAT_MAME = 2, NG_FORMAT_CODEMYSTICS = 3 };
 enum { NG_VERSION_UNKNOWN = 0, NG_VERSION_GOG = 1, NG_VERSION_ARCADE = 2 };
 
 /* What was loaded (roms.c): the recompiled program and the game profile depend on it. */

@@ -43,8 +43,8 @@ static const NgGame GAME = {
     .mame = MAME,
     .n_mame = (int)(sizeof MAME / sizeof MAME[0]),
     .mame_encrypted = 1,
-    .cart = 0,                          /* standard P2 banking at 0x2FFFF0, no protection chip */
-    .fix_bank = NG_FIX_BANK_NONE,       /* the fix is 512 KB: its banking is Phase 2's */
+    .cart = NG_CART_STANDARD,           /* P2 banking at 0x2FFFF0-0x2FFFFF, no protection chip */
+    .fix_bank = NG_FIX_BANK_ROWS,
 };
 
 const NgGame *const ng_game = &GAME;

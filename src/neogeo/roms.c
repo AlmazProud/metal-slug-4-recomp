@@ -7,7 +7,8 @@
  *    Validated by SHA-256 against the GOG copy (ng_game->dotemu, docs/ROM_MAP.md). Files of the
  *    right size with another hash still load, marked as an unverified version.
  *  - Code Mystics files (Metal Slug 4's GOG release: Data\rom\p1.bin...), by name and size
- *    (ng_game->codemystics), checked by SHA-256: recognized and reported, not loaded yet.
+ *    (ng_game->codemystics), checked by SHA-256, with the Neo Geo system files of a MAME BIOS
+ *    set found below the path.
  *  - A MAME set (an arcade board dump): <id> + neogeo, as zips or loose files. Each file is
  *    recognized by its CRC-32 and confirmed by SHA-1, the hashes MAME publishes (mame -listxml),
  *    whatever its name; the graphics are converted to the DotEmu layout the runtime uses (the
@@ -331,6 +332,7 @@ static void describe(NgRoms *r, int format, int verified)
     if (format == NG_FORMAT_DOTEMU && !ng_has_pc_release()) i->version = NG_VERSION_ARCADE;
     snprintf(i->description, sizeof i->description, "%s, %s, BIOS %s%s",
              format == NG_FORMAT_MAME ? "MAME set" :
+             format == NG_FORMAT_CODEMYSTICS ? "PC release files (Code Mystics)" :
              ng_has_pc_release() ? "PC release files (DotEmu)" : "Decrypted reference files (MAME's regions)",
              i->version == NG_VERSION_GOG ? "GOG program" :
              i->version == NG_VERSION_ARCADE ? "arcade program" : "unknown program",
@@ -370,33 +372,93 @@ static int load_dotemu(NgRoms *r, Candidates *cs, const char *group, char *error
 }
 
 /* ------------------------------------------------------------------ Code Mystics */
-/* The Code Mystics files of one folder: recognized by name and size, checked by SHA-256 and
-   reported. Loading them (the packed-pixel sprites back to the runtime's layout) is Phase 2's. */
-static void report_codemystics(Candidates *cs, const char *group, char *error, int size)
+static uint8_t *read_mame(Candidates *cs, uint32_t size, uint32_t crc, const char *sha1_hex);
+
+/* Code Mystics' sprites: DotEmu's tiles (16 rows of 8 bytes, 4 bpp, low nibble first) with the
+   8 pixels of each half-row in reverse order (Metal Slug 4's docs/PHASE2_HARDWARE.md). The
+   reversal is its own inverse. */
+static void codemystics_tiles(uint8_t *t, uint32_t size)
+{
+    for (uint32_t i = 0; i < size; i += 4) {
+        uint8_t a = t[i], b = t[i + 1], c = t[i + 2], d = t[i + 3];
+        t[i] = (uint8_t)(d >> 4 | d << 4);
+        t[i + 1] = (uint8_t)(c >> 4 | c << 4);
+        t[i + 2] = (uint8_t)(b >> 4 | b << 4);
+        t[i + 3] = (uint8_t)(a >> 4 | a << 4);
+    }
+}
+
+/* The Code Mystics files of one folder (recognized by name and size, checked by SHA-256): MAME's
+   regions after MAME's own transformations. The system files (BIOS, sfix.sfix, 000-lo.lo) are not
+   part of the release: they come from a MAME BIOS set anywhere below the path, by hash. */
+static int load_codemystics(NgRoms *r, Candidates *cs, const char *group, char *error, int size)
 {
     const NgDotEmuFile *files = ng_game->codemystics;
-    int found = 0, verified = 0;
+    uint8_t *d[NG_CM_ROLES] = {0};
+    uint8_t *sys[N_SYSTEM] = {0};
+    const SystemFile *sys_chosen[N_SYSTEM] = {0};
+    int verified = 1, result = -1;
     char missing[300] = "";
     for (int k = 0; k < NG_CM_ROLES; k++) {
         const Candidate *c = NULL;
         for (int i = 0; i < cs->n && !c; i++)
             if (!strcmp(cs->c[i].group, group) && !strcmp(cs->c[i].base, files[k].name) && cs->c[i].size == files[k].size)
                 c = &cs->c[i];
-        uint8_t *d = c ? read_candidate(c) : NULL;
-        if (d) {
-            found++;
-            verified += sha256_is(d, files[k].size, files[k].sha256);
-            free(d);
+        if (c && (d[k] = read_candidate(c)) != NULL) {
+            if (!sha256_is(d[k], files[k].size, files[k].sha256)) verified = 0;
             continue;
         }
         size_t n = strlen(missing);
         snprintf(missing + n, sizeof missing - n, "%s%s", n ? ", " : "", files[k].name);
     }
-    if (missing[0])
+    if (missing[0]) {
         set_error(error, size, "Incomplete GOG copy (Code Mystics): missing %s", missing);
-    else
-        set_error(error, size, "GOG copy (Code Mystics) found%s (%d files), but loading it is not in the "
-                  "runtime yet", verified == found ? " and verified" : ", an unknown version", found);
+        goto done;
+    }
+    for (int k = 0; k < N_SYSTEM_FILES; k++) {
+        int role = SYSTEM[k].role;
+        if (!sys[role] && (sys[role] = read_mame(cs, SYSTEM[k].size, SYSTEM[k].crc, SYSTEM[k].sha1)) != NULL)
+            sys_chosen[role] = &SYSTEM[k];
+    }
+    for (int role = 0; role < N_SYSTEM; role++) {
+        if (sys[role]) continue;
+        const char *name = role == S_BIOS ? "an MVS BIOS" : NULL;
+        for (int k = 0; k < N_SYSTEM_FILES && !name; k++) if (SYSTEM[k].role == role) name = SYSTEM[k].name;
+        size_t n = strlen(missing);
+        snprintf(missing + n, sizeof missing - n, "%s%s", n ? ", " : "", name);
+    }
+    if (missing[0]) {
+        set_error(error, size, "GOG copy (Code Mystics) found; the Neo Geo system files are missing: %s "
+                  "(neogeo.zip from a MAME set)", missing);
+        goto done;
+    }
+    /* m1.bin is MAME's audiocpu region: the M1 at 0x10000 (128 KB), 0-0xFFFF repeating it. */
+    const uint32_t z80_size = 131072;
+    r->p = d[NG_CM_P]; d[NG_CM_P] = NULL; r->p_size = files[NG_CM_P].size;
+    r->tiles = d[NG_CM_TILES]; d[NG_CM_TILES] = NULL; r->n_tiles = files[NG_CM_TILES].size / 128;
+    codemystics_tiles(r->tiles, files[NG_CM_TILES].size);
+    r->fix_game_size = files[NG_CM_FIX_GAME].size;
+    r->fix_game = malloc(r->fix_game_size);
+    r->fix_bios = malloc(131072);
+    r->z80 = malloc(z80_size); r->z80_size = z80_size;
+    r->adpcm = d[NG_CM_ADPCM]; d[NG_CM_ADPCM] = NULL; r->adpcm_size = files[NG_CM_ADPCM].size;
+    r->bios = sys[S_BIOS]; sys[S_BIOS] = NULL;
+    r->zoom = sys[S_LO]; sys[S_LO] = NULL;
+    if (!r->fix_game || !r->fix_bios || !r->z80 || files[NG_CM_Z80].size < 0x10000 + z80_size) {
+        set_error(error, size, "Out of memory");
+        ng_roms_free(r);
+        goto done;
+    }
+    fix_to_dotemu(d[NG_CM_FIX_GAME], r->fix_game, r->fix_game_size);
+    fix_to_dotemu(sys[S_SFIX], r->fix_bios, 131072);
+    memcpy(r->z80, d[NG_CM_Z80] + 0x10000, z80_size);
+    snprintf(r->info.bios, sizeof r->info.bios, "%s", sys_chosen[S_BIOS]->label);
+    describe(r, NG_FORMAT_CODEMYSTICS, verified);
+    result = 0;
+done:
+    for (int k = 0; k < NG_CM_ROLES; k++) free(d[k]);
+    for (int role = 0; role < N_SYSTEM; role++) free(sys[role]);
+    return result;
 }
 
 /* ------------------------------------------------------------------ MAME */
@@ -581,12 +643,12 @@ int ng_roms_load(NgRoms *r, const char *path, char *error, int error_size)
     for (int i = 0; i < cs.n && result != 0; i++)
         if (ng_game->dotemu[NG_DOTEMU_P].name && !strcmp(cs.c[i].base, ng_game->dotemu[NG_DOTEMU_P].name))
             result = load_dotemu(r, &cs, cs.c[i].group, error, error_size);
-    /* Code Mystics files (the folder of the program file): reported, not loaded yet. */
+    /* Code Mystics files (the folder of the program file). */
     int had_codemystics = 0;
-    for (int i = 0; i < cs.n && result != 0 && !had_codemystics; i++)
+    for (int i = 0; i < cs.n && result != 0; i++)
         if (ng_game->codemystics[NG_CM_P].name && !strcmp(cs.c[i].base, ng_game->codemystics[NG_CM_P].name) &&
             cs.c[i].size == ng_game->codemystics[NG_CM_P].size) {
-            report_codemystics(&cs, cs.c[i].group, error, error_size);
+            result = load_codemystics(r, &cs, cs.c[i].group, error, error_size);
             had_codemystics = 1;
         }
     if (result != 0) {

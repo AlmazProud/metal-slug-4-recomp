@@ -9,6 +9,9 @@
  *                  docs/ROM_MAP.md there).
  *                  NEO-SMA (NG_CART_SMA): bank selected by writing to ng_game->sma_bank_reg,
  *                  chip ID at ng_game->sma_id_addr (docs/ROM_MAP.md).
+ *                  Standard (NG_CART_STANDARD, Metal Slug 4): as Metal Slug X's bank select,
+ *                  without the protection (learned from MAME: values 0-3 select P2's banks,
+ *                  every other value bank 0; docs/PHASE2_HARDWARE.md).
  *                  NEO-PVC (NG_CART_PVC): 2FE000-2FFFFF is 8 KB of RAM; writing its bytes
  *                  2FFFF0-2FFFF3 selects the window at any byte offset (docs/ROM_MAP.md,
  *                  docs/PHASE2_HARDWARE.md).
@@ -316,6 +319,7 @@ static void write_bus(uint32_t a, uint16_t v, uint16_t mask)
             if (a >= 0x2FFFE0 && a <= 0x2FFFEF) { prot_write(a - 0x2FFFE0, v); return; }
             if (a >= 0x2FFFF0) { p2_bank(v); return; }
         }
+        if (ng_game->cart == NG_CART_STANDARD && a >= 0x2FFFF0) { p2_bank(v); return; }
         if (ng_game->cart == NG_CART_SMA && a == ng_game->sma_bank_reg) { sma_bank(v); return; }
         if (ng_game->cart == NG_CART_PVC && a >= 0x2FE000) {
             uint8_t *r = ng.cart_ram + (a & 0x1FFF);

@@ -169,6 +169,32 @@ static int compare_roms(const char *other)
     return differ;
 }
 
+/* PD_DUMP_ROMS=folder (headless): writes what the runtime loaded, part by part (p.bin in the
+   68000's byte order, bios, fix_game, fix_bios, tiles, zoom, z80, adpcm), for tools that compare
+   it with MAME's regions (tools/check_load.py). The folder must exist. */
+static int dump_roms(const char *folder)
+{
+    const NgRoms *a = &ng_roms;
+    struct { const char *name; const uint8_t *x; uint32_t n; } parts[] = {
+        {"p", a->p, a->p_size}, {"bios", a->bios, 131072}, {"fix_game", a->fix_game, a->fix_game_size},
+        {"fix_bios", a->fix_bios, 131072}, {"tiles", a->tiles, a->n_tiles * 128}, {"zoom", a->zoom, 131072},
+        {"z80", a->z80, a->z80_size}, {"adpcm", a->adpcm, a->adpcm_size},
+    };
+    for (size_t i = 0; i < sizeof parts / sizeof parts[0]; i++) {
+        char path[1200];
+        snprintf(path, sizeof path, "%s/%s.bin", folder, parts[i].name);
+        FILE *f = fopen(path, "wb");
+        if (!f || fwrite(parts[i].x, 1, parts[i].n, f) != parts[i].n) {
+            fprintf(stderr, "could not write %s\n", path);
+            if (f) fclose(f);
+            return 1;
+        }
+        fclose(f);
+        printf("%s %u bytes\n", path, parts[i].n);
+    }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     Options o;
@@ -198,6 +224,7 @@ int main(int argc, char **argv)
         printf("%s\n%s\nprofile %s\n", ng_roms.info.description, machine_recompiled() ? "recompiled" : "interpreter",
                profile_supported() ? "supported" : "not supported");
     if (getenv("PD_COMPARE_ROMS")) return compare_roms(getenv("PD_COMPARE_ROMS"));
+    if (getenv("PD_DUMP_ROMS")) return dump_roms(getenv("PD_DUMP_ROMS"));
     cpu_turbo = o.turbo > 0 ? o.turbo : 0;
     if (headless_prepare(&o) != 0) return 1;
     machine_start(&o);
