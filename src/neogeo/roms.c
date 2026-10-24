@@ -428,8 +428,9 @@ static int load_codemystics(NgRoms *r, Candidates *cs, const char *group, char *
         snprintf(missing + n, sizeof missing - n, "%s%s", n ? ", " : "", name);
     }
     if (missing[0]) {
-        set_error(error, size, "GOG copy (Code Mystics) found; the Neo Geo system files are missing: %s "
-                  "(neogeo.zip from a MAME set)", missing);
+        set_error(error, size, "GOG copy found, without the Neo Geo system files (%s). Copy neogeo.zip, "
+                  "MAME's Neo Geo BIOS set, %s.", missing,
+                  ng_roms_system_path ? "to the \"game\" folder next to the program" : "next to the game");
         goto done;
     }
     /* m1.bin is MAME's audiocpu region: the M1 at 0x10000 (128 KB), 0-0xFFFF repeating it. */
@@ -624,11 +625,15 @@ done:
 }
 
 /* ------------------------------------------------------------------ entry point */
+const char *ng_roms_system_path;
+
 int ng_roms_load(NgRoms *r, const char *path, char *error, int error_size)
 {
     memset(r, 0, sizeof *r);
     Candidates cs = {0};
     walk(&cs, path, 0);
+    /* The system files may be elsewhere (a GOG install has none of them): searched there too. */
+    if (ng_roms_system_path && strcmp(ng_roms_system_path, path) != 0) walk(&cs, ng_roms_system_path, 0);
     char base[256];
     lower_base(path, base, sizeof base);
     if (ends_with(base, ".zip") && strcmp(base, "neogeo.zip") != 0) {

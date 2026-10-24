@@ -159,6 +159,9 @@ typedef struct {
  * the PC release's DotEmu files or a MAME set (game + neogeo). Returns 0 if a complete copy was
  * found; otherwise writes the reason into `error`. */
 int ng_roms_load(NgRoms *r, const char *path, char *error, int error_size);
+/* Another folder searched as well (NULL: none): the window's "game" folder next to the program,
+ * where a GOG copy's missing Neo Geo system files can go (Metal Slug 4: docs/PHASE5_LOADER.md). */
+extern const char *ng_roms_system_path;
 void ng_roms_free(NgRoms *r);
 
 /* ------------------------------------------------------------------ machine */

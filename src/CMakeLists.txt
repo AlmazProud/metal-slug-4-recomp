@@ -176,7 +176,7 @@ if(EXISTS "${PD_ROMS}/gog/p1.bin")
                          PASS_REGULAR_EXPRESSION "PC release files \\(Code Mystics\\), GOG program, BIOS us\n")
     add_test(NAME mslug4_roms_gog_alone COMMAND mslug4 --roms ${PD_ROMS}/gog --headless --frames 1 --no-audio)
     set_tests_properties(mslug4_roms_gog_alone PROPERTIES LABELS mslug4
-                         PASS_REGULAR_EXPRESSION "the Neo Geo system files are missing: sfix.sfix, 000-lo.lo")
+                         PASS_REGULAR_EXPRESSION "GOG copy found, without the Neo Geo system files \\(sfix.sfix, 000-lo.lo\\)")
     if(EXISTS "${PD_ROMS}/decrypted/sprites.bin")
         add_test(NAME mslug4_roms_gog_vs_mame
                  COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/check_load.py
@@ -429,9 +429,26 @@ if(EXISTS "${PD_ROMS}/mslug4h/263-ph1.p1")
                      mslug4h/263-c4.c4 mslug4h/263-c5.c5 mslug4h/263-c6.c6
                      neogeo/sp-u2.sp1 neogeo/000-lo.lo neogeo/sfix.sfix neogeo/sm1.sm1)
     set_tests_properties(mslug4_roms_mame_make PROPERTIES FIXTURES_SETUP mslug4_mameset LABELS mslug4)
+    # Phase 5 (docs/PHASE5_LOADER.md): the set decrypted at load (src/games/mslug4/crypt.c), the
+    # recompiled program and the profile on (the same P1); loose and zipped (the game's zip finds
+    # neogeo.zip next to it), every part identical to the GOG copy's (PD_COMPARE_ROMS).
     add_test(NAME mslug4_roms_mame COMMAND mslug4 --roms ${MS4_SET} --headless --frames 1 --no-audio)
     set_tests_properties(mslug4_roms_mame PROPERTIES LABELS mslug4 FIXTURES_REQUIRED mslug4_mameset
-                         PASS_REGULAR_EXPRESSION "MAME set found and verified \\(11 files, BIOS us\\)")
+                         ENVIRONMENT "PD_ROMS_INFO=1"
+                         PASS_REGULAR_EXPRESSION "MAME set, GOG program, BIOS us\n(recompiled|interpreter)\nprofile supported")
+    if(EXISTS "${PD_ROMS}/gog/p1.bin")
+        add_test(NAME mslug4_roms_mame_loose COMMAND mslug4 --roms ${PD_ROMS} --headless --frames 1 --no-audio)
+        set_tests_properties(mslug4_roms_mame_loose PROPERTIES LABELS mslug4 FIXTURES_REQUIRED mslug4_mameset
+                             ENVIRONMENT "PD_COMPARE_ROMS=${MS4_SET}")
+        set(MS4_ZIPS ${CMAKE_CURRENT_BINARY_DIR}/mslug4_mame_zips)
+        add_test(NAME mslug4_roms_mame_zips_make
+                 COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tests/loader/zip_set.py ${MS4_SET} ${MS4_ZIPS} mslug4h)
+        set_tests_properties(mslug4_roms_mame_zips_make PROPERTIES LABELS mslug4 FIXTURES_REQUIRED mslug4_mameset
+                             FIXTURES_SETUP mslug4_mame_zips)
+        add_test(NAME mslug4_roms_mame_zip COMMAND mslug4 --roms ${PD_ROMS} --headless --frames 1 --no-audio)
+        set_tests_properties(mslug4_roms_mame_zip PROPERTIES LABELS mslug4 FIXTURES_REQUIRED mslug4_mame_zips
+                             ENVIRONMENT "PD_COMPARE_ROMS=${MS4_ZIPS}/mslug4h.zip")
+    endif()
 else()
     message(STATUS "Metal Slug 4 MAME test disabled: the rebuilt set (PD_ROMS/mslug4h) is missing")
 endif()

@@ -1103,12 +1103,17 @@ static int ask_for_game(char *error, int error_size)
 static int find_roms(const Options *o)
 {
     char error[1200] = "", first_error[1200] = "";
+    const char *base = SDL_GetBasePath();
+    /* The "game" folder next to the program also gives the Neo Geo system files a GOG copy lacks
+       (Metal Slug 4), wherever the copy is. */
+    static char system_path[1100];
+    snprintf(system_path, sizeof system_path, "%sgame", base ? base : "");
+    ng_roms_system_path = system_path;
     if (o->roms) {
         if (try_roms(o->roms, error, sizeof error)) return 1;
         return ask_for_game(error, sizeof error);
     }
     if (cfg.roms[0] && try_roms(cfg.roms, error, sizeof error)) return 1;
-    const char *base = SDL_GetBasePath();
     static char places[16][1024];
     int n = game_places(base ? base : "", places, 16);
     for (int i = 0; i < n; i++) {

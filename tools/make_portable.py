@@ -10,7 +10,7 @@ For each game whose executable is built and whose files are found, <out>/Metal S
 the executable, SDL3.dll, the licenses, a "game" folder with the user's own copy of the game files
 (copied from the given folder: the DotEmu-layout files only, not MAME sets; for Metal Slug 5, the
 decrypted reference files made from the user's MAME set; for Metal Slug 4, GOG's files and the
-system files) and an empty "save" folder. With "save"
+system files, or with --mame-set or without GOG's files the MAME set) and an empty "save" folder. With "save"
 next to the executable the port runs in portable mode: settings, SRAM, saved games and the title
 logo go there. Games without an executable or files are skipped.
 
@@ -29,7 +29,10 @@ ROOT = REPO.parent
 GAMES = {"mslug4": "Metal Slug 4", "mslug5": "Metal Slug 5", "mslug3": "Metal Slug 3", "mslugx": "Metal Slug X"}
 # Games whose runtime decrypts the MAME set at load: their copy takes the set itself (relative to
 # the given folder) when it is there, instead of the decrypted files.
-MAME_SETS = {"mslug5": ["mslug5.zip", "neogeo/sp-u2.sp1", "neogeo/000-lo.lo", "neogeo/sfix.sfix"]}
+MAME_SETS = {"mslug5": ["mslug5.zip", "neogeo/sp-u2.sp1", "neogeo/000-lo.lo", "neogeo/sfix.sfix"],
+             "mslug4": [f"mslug4h/263-{n}" for n in ("ph1.p1", "ph2.sp2", "m1.m1", "v1.v1", "v2.v2", "c1.c1",
+                                                    "c2.c2", "c3.c3", "c4.c4", "c5.c5", "c6.c6")]
+                       + ["neogeo/sp-u2.sp1", "neogeo/000-lo.lo", "neogeo/sfix.sfix"]}
 # Metal Slug 4: GOG's Code Mystics files and the system files the GOG copy lacks (the MAME BIOS
 # set's; docs/PHASE2_HARDWARE.md), relative to the given folder.
 CODEMYSTICS = {"mslug4": ["gog/p1.bin", "gog/c1.bin", "gog/s2.bin", "gog/m1.bin", "gog/v1.bin",
@@ -60,15 +63,19 @@ el menu; Share saca una captura). Las capturas van a la carpeta "screenshots" de
 """
 
 
-def copy_game(game: str, files: Path, build: Path, out: Path) -> int:
+def copy_game(game: str, files: Path, build: Path, out: Path, mame_set: bool = False) -> int:
     exe = build / "src" / f"{game}.exe"
     dll = build / "src" / "SDL3.dll"
     if not dll.is_file():
         print(f"missing {dll}: build first", file=sys.stderr)
         return 1
-    mame = [files / f for f in MAME_SETS.get(game, CODEMYSTICS.get(game, []))]
-    use_mame = bool(mame) and all(p.is_file() for p in mame)
-    if use_mame:
+    gog = [files / f for f in CODEMYSTICS.get(game, [])]
+    use_gog = bool(gog) and not mame_set and all(p.is_file() for p in gog)
+    mame = [files / f for f in MAME_SETS.get(game, [])]
+    use_mame = not use_gog and bool(mame) and all(p.is_file() for p in mame)
+    if use_gog:
+        data = gog
+    elif use_mame:
         data = mame
     elif game in CODEMYSTICS:
         data = []
@@ -87,9 +94,12 @@ def copy_game(game: str, files: Path, build: Path, out: Path) -> int:
             shutil.copy2(REPO / name, dest / (name + ".txt" if "." not in name else name))
     if (REPO / "licenses").is_dir():
         shutil.copytree(REPO / "licenses", dest / "licenses", dirs_exist_ok=True)
-    if use_mame:                      # an earlier copy's decrypted files would load first
+    if use_mame or use_gog:           # an earlier copy's other files would load first
         for old in (dest / "game").glob(f"{game}_*"):
             old.unlink()
+        other = "gog" if use_mame else "mslug4h"
+        if game == "mslug4" and (dest / "game" / other).is_dir():
+            shutil.rmtree(dest / "game" / other)
     for f in data:
         target = dest / "game" / f.relative_to(files)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -97,7 +107,7 @@ def copy_game(game: str, files: Path, build: Path, out: Path) -> int:
             shutil.copy2(f, target)
     (dest / "README.txt").write_text(README.format(title=GAMES[game], exe=exe.name), encoding="utf-8")
     size = sum(p.stat().st_size for p in dest.rglob("*") if p.is_file())
-    kind = ", GOG's files" if game in CODEMYSTICS else ", the MAME set" if use_mame else ""
+    kind = ", GOG's files" if use_gog else ", the MAME set" if use_mame else ""
     print(f"{GAMES[game]}: {dest} ({size / 2**20:.0f} MB, {len(data)} game files{kind})")
     return 0
 
@@ -112,6 +122,8 @@ def main() -> int:
     ap.add_argument("--mslug3", type=Path, default=ROOT.parent / "MS3_Port" / "roms", help="folder with the mslug3_* files")
     ap.add_argument("--mslugx", type=Path, default=ROOT.parent / "roms", help="folder with the mslugx_* files")
     ap.add_argument("--only", choices=list(GAMES), help="copy only this game")
+    ap.add_argument("--mame-set", action="store_true",
+                    help="Metal Slug 4: copy the MAME set (mslug4h and neogeo) instead of GOG's files")
     a = ap.parse_args()
     if REPO in a.out.resolve().parents or a.out.resolve() == REPO:
         print("the output must be outside the repository", file=sys.stderr)
@@ -119,7 +131,7 @@ def main() -> int:
     r = 0
     for game in GAMES:
         if not a.only or game == a.only:
-            r |= copy_game(game, getattr(a, game), a.build, a.out)
+            r |= copy_game(game, getattr(a, game), a.build, a.out, a.mame_set)
     return r
 
 
