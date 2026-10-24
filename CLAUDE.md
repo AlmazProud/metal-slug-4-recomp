@@ -127,9 +127,32 @@ Oracle: `mame mslug4h -bios us -rompath "<workspace>\roms"` (the rebuilt set in 
 | 1. Import Metal Slug 5's runtime and frontend with an empty `mslug4h` descriptor and profile (four executables) | **Closed** (2026-10-23). See `docs/PHASE1_IMPORT.md`. `ctest`: 122/122 (interpreter-only 116/116). |
 | 2. Metal Slug 4 hardware in the interpreter (minimal GOG loader, P2 banks, decrypted M1, PCM2) | **Closed** (2026-10-23). See `docs/PHASE2_HARDWARE.md`. Image and RAM identical to MAME (attract: 224 known VBlanks, 4 known images; start: no difference); audio as Metal Slug 5's (0.92 / 0.94), reported. `ctest`: 126/126 (interpreter-only 120/120). |
 | 3. Analysis and recompilation | **Closed**, pending approval (2026-10-23). See `docs/PHASE3_RECOMP.md` and `docs/PHASE3_COVERAGE.md`. No code runs from the P2 banks; P1 and the BIOS recompiled; lockstep identical; the user's game `partida1` identical to MAME (7 known stack-only VBlanks). `ctest`: 129/129 (interpreter-only 121/121). |
-| 4. Profile and frontend (boss bar and Boss Rush as a stage of their own) | - |
+| 4. Profile and frontend (boss bar and Boss Rush as a stage of their own) | Part A (profile and frontend) **closed**, pending approval (2026-10-24). See `docs/PHASE4_PROFILE.md`. Part B (boss bar, Boss Rush): `docs/BOSS_RUSH.md`, not started. `ctest`: 148/148 (interpreter-only 140/140). |
 | 5. Universal loader (GOG, the MAME set decrypted at load) | - |
 | 6. Publishing (`AlmazProud/metal-slug-4-recomp`) | - |
+
+### Phase 4, part A: result
+
+Details in `docs/PHASE4_PROFILE.md`.
+
+- **Engine addresses** from Metal Slug 3's and 5's profile windows found in Metal Slug 4's P1
+  (`tools/match_windows.py`), each checked in the listing and in MAME. Start mission bytes
+  `0x10ED62/3`, current mission `0x100BCC` (bytes 0-5 = Missions 1-6), score `0x1066D8`, player
+  tables `0x10EDEA/FA`, give routine `0xC52EC`, form table `0xC508A`, stage table `0xB9CAE`
+  (`analysis/phase4/stage_table.txt`).
+- **Against MAME** (`analysis/phase4`): developer mode, every debug dip, load meter, red blood,
+  Missions 2-6 (`PD_POKE` at 4600), the "Start mission" option, cheats, the Metal Slug, the forms
+  (fat, mummy, zombie, monkey): images identical; RAM only in checked known VBlanks.
+- **Soldiers** Marco, Fio, Trevor, Nadia (internal 0, 3, 1, 2); **music in mode 08** (07 the same
+  catalog), effects 1A, voices 18; silence `03 0A A0 08 20 07 20`.
+- **Shared code** (Metal Slug X, 3, 5 unchanged): `form_weapon_classes`, `form_classes`,
+  `form_events`, `soldier_names`, `soldier_internal_of`; the sound menu test measures the silence
+  after the silence sequence.
+- **Not identified:** weapons 1, 16-18 (listed by number), the vehicles other than the Metal Slug
+  and the walking machine.
+- **Lessons:** MAME's `PD_BLOOD` is `word,mask` (the port only checks it is set); a re-recorded
+  MAME run has a new date: reconfigure CMake; RAM dumps need `--fingerprints`; tests that write
+  progress or records files need them removed first (a fixture).
 
 ### Phase 3: result
 
