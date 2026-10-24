@@ -7,7 +7,8 @@
  *     HKLM\SOFTWARE\WOW6432Node\GOG.com\Games\<id> with "gameName" and "path" (ng_game->gog_id,
  *     or any entry whose name contains the game's title).
  *  3. Steam libraries (Steam's registry path + steamapps\libraryfolders.vdf): any game folder
- *     under steamapps\common with resources\game\<id>_game_m68k.
+ *     under steamapps\common with resources\game\<id>_game_m68k (DotEmu) or Data\rom\p1.bin
+ *     (Code Mystics, Metal Slug 4).
  *  4. The usual install folders on every drive.
  * Full recognition is done later by ng_roms_load; here it is enough that the 68000 program
  * exists. Steps 2-4 only apply to games with a PC release (ng_has_pc_release); Metal Slug 5 has
@@ -51,12 +52,19 @@ static int exists(const char *path)
     return stat(path, &st) == 0;
 }
 
-/* A PC release install folder (it contains resources\game\<id>_game_m68k). */
+/* A PC release install folder: DotEmu's resources\game\<id>_game_m68k or Code Mystics'
+   Data\rom\p1.bin. */
 static void try_install(Places *p, const char *base)
 {
     char path[1200];
-    snprintf(path, sizeof path, "%s\\resources\\game\\%s", base, ng_game->dotemu[NG_DOTEMU_P].name);
-    if (exists(path)) add(p, base);
+    if (ng_game->dotemu[NG_DOTEMU_P].name) {
+        snprintf(path, sizeof path, "%s\\resources\\game\\%s", base, ng_game->dotemu[NG_DOTEMU_P].name);
+        if (exists(path)) add(p, base);
+    }
+    if (ng_game->codemystics[NG_CM_P].name) {
+        snprintf(path, sizeof path, "%s\\Data\\rom\\%s", base, ng_game->codemystics[NG_CM_P].name);
+        if (exists(path)) add(p, base);
+    }
 }
 
 #ifdef _WIN32

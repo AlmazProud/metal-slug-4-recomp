@@ -53,6 +53,11 @@ typedef struct {
     const char *sha256;      /* of the reference (GOG) copy */
 } NgDotEmuFile;
 
+/* Code Mystics files (Metal Slug 4's GOG release: Data\rom\*.bin), one per role, the same shape:
+   MAME's regions after MAME's own transformations, the sprites in packed pixels (Metal Slug 4's
+   docs/ROM_MAP.md). */
+enum { NG_CM_P, NG_CM_TILES, NG_CM_FIX_GAME, NG_CM_Z80, NG_CM_ADPCM, NG_CM_ROLES };
+
 /* A cartridge file of the MAME set. Files of the same kind are joined in `index` order: P and V
  * concatenated, C in pairs (odd, even) per 16 MB of sprites. X: a chip's own ROM (NEO-SMA). */
 enum { NG_MAME_P, NG_MAME_S, NG_MAME_M, NG_MAME_V, NG_MAME_C, NG_MAME_X, NG_MAME_KINDS };
@@ -88,6 +93,8 @@ typedef struct {
     const char *project;     /* "metal-slug-x-recomp" */
     const char *gog_id;      /* GOG Galaxy registry id */
     NgDotEmuFile dotemu[NG_DOTEMU_ROLES];   /* names NULL: none (with no PC release: reference files) */
+    NgDotEmuFile codemystics[NG_CM_ROLES];  /* names NULL: none. Recognized and reported, not
+                                               loaded yet (Metal Slug 4, Phase 2) */
     const char *gog_p1_sha256;   /* first MB of the 68000 program (file byte order); NULL: none */
     const NgMameFile *mame;  /* NULL: MAME sets of this game are not supported */
     int n_mame;

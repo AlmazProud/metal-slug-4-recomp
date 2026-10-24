@@ -6,6 +6,8 @@
  *  - DotEmu files (the PC releases: GOG, and most likely Steam): resources\game\<id>_*.
  *    Validated by SHA-256 against the GOG copy (ng_game->dotemu, docs/ROM_MAP.md). Files of the
  *    right size with another hash still load, marked as an unverified version.
+ *  - Code Mystics files (Metal Slug 4's GOG release: Data\rom\p1.bin...), by name and size
+ *    (ng_game->codemystics), checked by SHA-256: recognized and reported, not loaded yet.
  *  - A MAME set (an arcade board dump): <id> + neogeo, as zips or loose files. Each file is
  *    recognized by its CRC-32 and confirmed by SHA-1, the hashes MAME publishes (mame -listxml),
  *    whatever its name; the graphics are converted to the DotEmu layout the runtime uses (the
@@ -118,6 +120,9 @@ static int interesting(const char *base, uint32_t size)
 {
     size_t n = strlen(ng_game->id);
     if (!strncmp(base, ng_game->id, n) && base[n] == '_') return 1;
+    for (int k = 0; k < NG_CM_ROLES; k++)                       /* Code Mystics' generic names */
+        if (ng_game->codemystics[k].name && !strcmp(base, ng_game->codemystics[k].name) &&
+            size == ng_game->codemystics[k].size) return 1;
     for (int k = 0; k < ng_game->n_mame; k++)                   /* the MAME set's sizes */
         if (ng_game->mame[k].size == size) return 1;
     return size == 131072 || size == MB || size == 2 * MB || size == 4 * MB || size == 8 * MB;
@@ -364,6 +369,36 @@ static int load_dotemu(NgRoms *r, Candidates *cs, const char *group, char *error
     return 0;
 }
 
+/* ------------------------------------------------------------------ Code Mystics */
+/* The Code Mystics files of one folder: recognized by name and size, checked by SHA-256 and
+   reported. Loading them (the packed-pixel sprites back to the runtime's layout) is Phase 2's. */
+static void report_codemystics(Candidates *cs, const char *group, char *error, int size)
+{
+    const NgDotEmuFile *files = ng_game->codemystics;
+    int found = 0, verified = 0;
+    char missing[300] = "";
+    for (int k = 0; k < NG_CM_ROLES; k++) {
+        const Candidate *c = NULL;
+        for (int i = 0; i < cs->n && !c; i++)
+            if (!strcmp(cs->c[i].group, group) && !strcmp(cs->c[i].base, files[k].name) && cs->c[i].size == files[k].size)
+                c = &cs->c[i];
+        uint8_t *d = c ? read_candidate(c) : NULL;
+        if (d) {
+            found++;
+            verified += sha256_is(d, files[k].size, files[k].sha256);
+            free(d);
+            continue;
+        }
+        size_t n = strlen(missing);
+        snprintf(missing + n, sizeof missing - n, "%s%s", n ? ", " : "", files[k].name);
+    }
+    if (missing[0])
+        set_error(error, size, "Incomplete GOG copy (Code Mystics): missing %s", missing);
+    else
+        set_error(error, size, "GOG copy (Code Mystics) found%s (%d files), but loading it is not in the "
+                  "runtime yet", verified == found ? " and verified" : ", an unknown version", found);
+}
+
 /* ------------------------------------------------------------------ MAME */
 static uint8_t *read_mame(Candidates *cs, uint32_t size, uint32_t crc, const char *sha1_hex)
 {
@@ -546,12 +581,20 @@ int ng_roms_load(NgRoms *r, const char *path, char *error, int error_size)
     for (int i = 0; i < cs.n && result != 0; i++)
         if (ng_game->dotemu[NG_DOTEMU_P].name && !strcmp(cs.c[i].base, ng_game->dotemu[NG_DOTEMU_P].name))
             result = load_dotemu(r, &cs, cs.c[i].group, error, error_size);
+    /* Code Mystics files (the folder of the program file): reported, not loaded yet. */
+    int had_codemystics = 0;
+    for (int i = 0; i < cs.n && result != 0 && !had_codemystics; i++)
+        if (ng_game->codemystics[NG_CM_P].name && !strcmp(cs.c[i].base, ng_game->codemystics[NG_CM_P].name) &&
+            cs.c[i].size == ng_game->codemystics[NG_CM_P].size) {
+            report_codemystics(&cs, cs.c[i].group, error, error_size);
+            had_codemystics = 1;
+        }
     if (result != 0) {
         char dotemu_error[600];
         snprintf(dotemu_error, sizeof dotemu_error, "%s", error);
         if (ng_game->mame) result = load_mame(r, &cs, error, error_size);
         size_t id_len = strlen(ng_game->id);
-        int had_dotemu = 0;
+        int had_dotemu = had_codemystics;
         for (int i = 0; i < cs.n; i++)
             had_dotemu |= !strncmp(cs.c[i].base, ng_game->id, id_len) && cs.c[i].base[id_len] == '_';
         if (result != 0 && had_dotemu) set_error(error, error_size, "%s", dotemu_error);
