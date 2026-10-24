@@ -89,6 +89,7 @@ static const ProfileWindow WINDOWS[] = {
                                  player, D1 weapon) and its pickup: ammo +0xC, weapon +4, previous +5 */
     {0x081D0E, 0x081E08},     /* status object: character $8C, lives $8D (from the BIOS HERO setting) */
     {0x067A26, 0x067A76},     /* score: player 1 at 0x1066D8 (8 BCD digits) */
+    {0x007E26, 0x007E4A},     /* the damage routine: life at +0x4E, dead bit +0x5B (boss bar) */
 };
 
 const GameProfile game_profile = {
@@ -96,7 +97,7 @@ const GameProfile game_profile = {
     .subtitle = "",
     .windows = WINDOWS,
     .n_windows = (int)(sizeof WINDOWS / sizeof WINDOWS[0]),
-    .windows_sha256 = "cdc3d2801bf4b668ee23afedb493d96dc0305609aba253267fd59738d1037c13",
+    .windows_sha256 = "96999741093733702bd9a2d511f22c8a5d117649e7d4268c8744b94de503ffa5",
     .vehicles = VEHICLES,
     .n_vehicles = (int)(sizeof VEHICLES / sizeof VEHICLES[0]),
     .sounds = MSLUG4_SOUNDS,
