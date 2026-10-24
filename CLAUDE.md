@@ -88,11 +88,22 @@ C:\Projecto Decompile\
     INSTALL.bat, env.ps1, env.bat, README.md, grabar_partida.bat   (copies from repo\setup\)
 repo\
   setup\        installer (setup.ps1, versions.json, env.*, record_game.bat, ci_tools.py, sdl3_test\)
-  tools\        audit.py, check_commit.py, hooks\; Phase 0: verify_set.py, probe_decryption.py,
-                rebuild_set.py; mame\ (dump_region.lua, oracle_phase0.lua, trace_banks.lua,
-                trace_z80_banks.lua, screenshots.lua)
-  docs\         ROM_MAP.md
+  src\cpu\      dispatcher, 68000 state, Musashi fallback            (imported from Metal Slug 5)
+  src\neogeo\   Neo Geo runtime (bus, LSPC, RTC, scheduler, ROMs, sound), shared by the four games
+  src\port\     SDL3 frontend (menus, configuration, headless mode), shared
+  src\games\    one folder per game: game.c (NgGame), profile.c (GameProfile), sounds.c, crypt.c
+  tools\        analysis, recompiler (recomp68k\), MAME Lua scripts (mame\), verification,
+                audit.py, check_commit.py, hooks\; Phase 0: verify_set.py, probe_decryption.py,
+                rebuild_set.py, mame\oracle_phase0.lua
+  tests\        differential\, lockstep\, loader\
+  external\     Musashi, ymfm, z80.h, stb_truetype, fonts
+  docs\         ROM_MAP.md, PHASE1_IMPORT.md; ADPCM_B.md and QOL_FEATURES.md (shared code)
 ```
+
+Build (environment active): `cmake -S repo -B repo\build -G Ninja -DCMAKE_BUILD_TYPE=Release`,
+`cmake --build repo\build`, `ctest --test-dir repo\build` (`-L mslug4` / `-L mslug5` / `-L mslug3`
+/ `-L mslugx`). Interpreter-only (distributable) build: `-B repo\build-dist -DPD_RECOMPILED=OFF`.
+**Before closing any change to shared code: all Metal Slug 5, 3 and X tests must pass.**
 
 Rebuild the MAME set from the GOG copy (once the maps are learned, `analysis\phase0\probe\`):
 `python tools/rebuild_set.py` (to `roms\mslug4h\`), then `python tools/verify_set.py mslug4h`.
@@ -112,12 +123,31 @@ Oracle: `mame mslug4h -bios us -rompath "<workspace>\roms"` (the rebuilt set in 
 |---|---|
 | Environment | **Closed** (2026-10-23). Verification 17/17 OK. ROMs copied to `roms\`. |
 | 0. Reconnaissance (Code Mystics format, encryption schemes, black-box decryption, rebuilt `mslug4h` set, ROM map, P2 banks, developer menu, oracle) | **Closed** (2026-10-23). See `docs/ROM_MAP.md`. All 11 game ROMs of `mslug4h` rebuilt from GOG (CRC-32 and SHA-1), the M1 included. |
-| 1. Import Metal Slug 5's runtime and frontend with an empty `mslug4h` descriptor and profile (four executables) | - |
+| 1. Import Metal Slug 5's runtime and frontend with an empty `mslug4h` descriptor and profile (four executables) | **Closed** (2026-10-23). See `docs/PHASE1_IMPORT.md`. `ctest`: 122/122 (interpreter-only 116/116). |
 | 2. Metal Slug 4 hardware in the interpreter (minimal GOG loader, P2 banks, decrypted M1, PCM2) | - |
 | 3. Analysis and recompilation | - |
 | 4. Profile and frontend (boss bar and Boss Rush as a stage of their own) | - |
 | 5. Universal loader (GOG, the MAME set decrypted at load) | - |
 | 6. Publishing (`AlmazProud/metal-slug-4-recomp`) | - |
+
+### Phase 1: result
+
+Details in `docs/PHASE1_IMPORT.md`.
+
+- **Import:** Metal Slug 5 v1.0.2's code (commit `ebe3896`) in one unchanged commit; against the
+  Metal Slug 5, 3 and X copies it passed the same 119 tests (`repo\build-ms5`).
+- **Four executables:** `mslug4.exe` (the product, interpreter only) and the regression targets
+  `mslug5.exe`, `mslug3.exe` and `mslugx.exe`, built when their copies are next to this workspace
+  (`PD_MS5_ROMS` / `PD_MS5_ANALYSIS`, default `<parent>\MS5_Port\roms` and `analysis`).
+- **`mslug4` descriptor:** the 11 files of `mslug4h` (CRC-32, SHA-1), the 5 Code Mystics files
+  (SHA-256), GOG id `1773574593`, `mame_encrypted`, a standard cartridge, no fix banking yet. Both
+  copies are recognized and reported, not loaded (tests `mslug4_roms_gog`, `mslug4_roms_mame`).
+  Empty profile; version 0.1.0.
+- **Shared code** (Metal Slug 5, 3 and X unchanged): `NgGame.codemystics`, a PC release in Code
+  Mystics' format (roms.c reports it; find_game.c finds its install by `Data\rom\p1.bin`). The
+  "game not found" screen found the user's GOG install by itself (English and Spanish).
+- **Not done here:** loading the GOG copy (Phase 2; it has no `000-lo.lo` nor MAME's `sfix.sfix`,
+  and its BIOS is `japan-j3`: to decide there); tools still defaulting to `--game mslug5`.
 
 ### Phase 0: result
 
