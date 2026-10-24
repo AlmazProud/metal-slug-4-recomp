@@ -1,7 +1,7 @@
 # Phase 6: publishing on GitHub
 
-**State:** stages 1-3 (local) done (2026-10-24), pending the user's approval; stage 4 (public) not
-started: each of its steps needs the user's explicit OK.
+**State:** closed (2026-10-24). Public repository and release v1.0.0, each step with the user's
+explicit OK.
 
 Metal Slug 3's and 5's method:
 
@@ -10,7 +10,7 @@ Metal Slug 3's and 5's method:
 | 1 | Documentation (`README.md`) and version 1.0.0 | Done |
 | 2 | Audits (`tools/audit.py`): the whole history, the ROM search, personal data | Done |
 | 3 | Packaging (interpreter-only zip), CI and a clean clone | Done |
-| 4 | Publishing `AlmazProud/metal-slug-4-recomp`, each step with the user's OK | - |
+| 4 | Publishing `AlmazProud/metal-slug-4-recomp`, each step with the user's OK | Done |
 
 Known exceptions for the audits: the decryption key tables of `src/games/mslug4/crypt_tables.h`
 (Phase 5, the user's decision), `src/games/mslug5/crypt_tables.h` and
@@ -64,5 +64,10 @@ in `audit.py` with its reason.
    --source . --remote origin --push`: the whole history (28 commits), `main` the same commit as
    the local one (`d7d6e0c`). The push started the CI build.
 2. CI: that build (GitHub Actions, the pinned toolchain) passed in 44 s, artifact `mslug4-win64`.
-3. Pending the user's OK: `gh release create v1.0.0` on `main` with the zip and
-   `release/notes-v1.0.0.md` (outside the repository); the zip downloaded back checked by SHA-256.
+3. With the user's OK (2026-10-24): the documentation commit pushed (CI passed in 54 s) and
+   `gh release create v1.0.0` on `main` (`8d128cf`) with `metal-slug-4-recomp-v1.0.0-win64.zip`
+   (2 781 434 bytes) and `release/notes-v1.0.0.md` (outside the repository): public, not a draft.
+   The zip downloaded back from GitHub has the same SHA-256 as the local one
+   (`60faf3fd...c2c127`).
+
+**Release:** https://github.com/AlmazProud/metal-slug-4-recomp/releases/tag/v1.0.0

@@ -129,7 +129,7 @@ Oracle: `mame mslug4h -bios us -rompath "<workspace>\roms"` (the rebuilt set in 
 | 3. Analysis and recompilation | **Closed**, pending approval (2026-10-23). See `docs/PHASE3_RECOMP.md` and `docs/PHASE3_COVERAGE.md`. No code runs from the P2 banks; P1 and the BIOS recompiled; lockstep identical; the user's game `partida1` identical to MAME (7 known stack-only VBlanks). `ctest`: 129/129 (interpreter-only 121/121). |
 | 4. Profile and frontend (boss bar and Boss Rush as a stage of their own) | Part A (profile and frontend) **closed**, pending approval (2026-10-24). See `docs/PHASE4_PROFILE.md`. Part B (boss bar, Boss Rush): `docs/BOSS_RUSH.md`, stages 0-3 closed (stage 3 pending approval). `ctest`: 161/161 (interpreter-only 153/153). |
 | 5. Universal loader (GOG, the MAME set decrypted at load) | **Closed**, pending approval (2026-10-24). See `docs/PHASE5_LOADER.md`. The MAME set (zip or loose) decrypted at load, identical to the GOG copy; GOG-only installs: the system files from `neogeo.zip` in the `game` folder next to the program. `ctest`: 164/164 (interpreter-only 156/156). |
-| 6. Publishing (`AlmazProud/metal-slug-4-recomp`) | Stages 1-3 (local) done, pending approval (2026-10-24). See `docs/PHASE6_RELEASE.md`. Version 1.0.0, audits clean, `release/metal-slug-4-recomp-v1.0.0-win64.zip`. Stage 4 (public): each step with the user's OK. |
+| 6. Publishing (`AlmazProud/metal-slug-4-recomp`) | **Closed** (2026-10-24). See `docs/PHASE6_RELEASE.md`. Public repository https://github.com/AlmazProud/metal-slug-4-recomp, release v1.0.0 (interpreter only, SHA-256 checked after download). |
 
 ### Phase 4, part A: result
 
