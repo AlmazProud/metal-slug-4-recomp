@@ -622,7 +622,10 @@ static int test_sounds(const Options *o)
     ng_state_load(before, size);
 
     sounds_show();
-    double silence = sounds_energy(10);              /* after 03 03 06: the game goes quiet */
+    /* The silence commands go one per frame: the game goes quiet once they are sent (Metal Slug
+       4's driver only stops the music when its whole sequence has arrived). */
+    sounds_energy(game_profile.n_sound_stop ? game_profile.n_sound_stop : 3);
+    double silence = sounds_energy(10);
     sounds_navigate(1);                               /* Music: second entry (Mission 1) */
     sounds_navigate(4);
     double music = sounds_energy(300);

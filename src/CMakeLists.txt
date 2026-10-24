@@ -270,6 +270,74 @@ if(EXISTS "${PD_ROMS}/gog/p1.bin")
             set_tests_properties(mslug4_${run}_vs_mame PROPERTIES LABELS mslug4 ENVIRONMENT "PD_CHEAT=${cheat}")
         endif()
     endfunction()
+    # Phase 4: the "Start mission" option (PD_START_MISSION) against the MAME run that starts at
+    # Mission 4: identical images; RAM differs only in the start mission byte while the option has
+    # written it and the MAME run has not yet (mission4_option_known_vblank.txt).
+    set(m4 ${PD_ANALYSIS}/phase4/missions/mission4)
+    if(EXISTS "${m4}_option_known_vblank.txt" AND EXISTS "${m4}_fingerprints.txt")
+        file(READ "${m4}_date.txt" date)
+        file(READ "${m4}_frames.txt" frames)
+        string(STRIP "${date}" date)
+        string(STRIP "${frames}" frames)
+        add_test(NAME mslug4_start_mission_option_vs_mame
+                 COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/verify_mission.py
+                         --exe $<TARGET_FILE:mslug4> --roms ${PD_ROMS}
+                         --inputs ${m4}_inputs.txt --reference ${m4}_fingerprints.txt
+                         --frames ${frames} --date ${date} --known-differences ${m4}_option_known_vblank.txt
+                         --output ${CMAKE_CURRENT_BINARY_DIR}/mslug4_start_mission_option_fingerprints_port.txt)
+        set_tests_properties(mslug4_start_mission_option_vs_mame PROPERTIES LABELS mslug4 ENVIRONMENT "PD_START_MISSION=4")
+    endif()
+    # Mission mode's direct start (cheats.h, cheats_mission_from): the coin right after the boot, no
+    # "How to play" (PLAY MANUAL read as off), Mission 3 written again after the new game clears it
+    # and loaded after the soldier select.
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/mslug4_mission_direct.txt "301 306 coin1\n351 356 start1\n")
+    add_test(NAME mslug4_mission_mode_direct
+             COMMAND mslug4 --roms ${PD_ROMS} --headless --frames 3000 --no-audio
+                     --script ${CMAKE_CURRENT_BINARY_DIR}/mslug4_mission_direct.txt --date 2026-10-24-01-00-00-6)
+    set_tests_properties(mslug4_mission_mode_direct PROPERTIES LABELS mslug4 ENVIRONMENT "PD_MISSION_ONCE=3"
+        PASS_REGULAR_EXPRESSION "start mission 3 written at frame 2608")
+    # Phase 4: the sound menu (src/games/mslug4/sounds.c, the profile's driver modes) is audible in
+    # the middle of the user's game and, after closing it, the game stays identical.
+    set(play1 ${PD_ANALYSIS}/phase3/play/partida1)
+    if(EXISTS "${play1}_replay_inputs.txt" AND EXISTS "${play1}_date.txt")
+        file(READ "${play1}_date.txt" date)
+        string(STRIP "${date}" date)
+        add_test(NAME mslug4_sound_menu
+                 COMMAND mslug4 --roms ${PD_ROMS} --headless --frames 20000 --test-sounds
+                         --inputs ${play1}_replay_inputs.txt --date ${date})
+        set_tests_properties(mslug4_sound_menu PROPERTIES LABELS mslug4)
+        # Records: the user's game completes Missions 1 and 2 cleanly; both are recorded.
+        add_test(NAME mslug4_records_clean
+                 COMMAND mslug4 --roms ${PD_ROMS} --headless --no-audio --frames 46541
+                         --inputs ${play1}_replay_inputs.txt --date ${date})
+        set_tests_properties(mslug4_records_clean PROPERTIES LABELS mslug4
+            ENVIRONMENT "PD_RECORDS=${CMAKE_CURRENT_BINARY_DIR}/mslug4_records_clean.ini"
+            PASS_REGULAR_EXPRESSION "mission 1 completed at frame 16334: 15339 frames .*
+.*mission 2 completed at frame 46069: 29735 frames"
+            FAIL_REGULAR_EXPRESSION "not clean")
+    endif()
+    # Progress and records from Mission 1's boss section (the developers' stage table: mission byte
+    # 0, record 3), invincible, the "D kills every enemy" dip and a bot pressing D
+    # (analysis/boss_rush/stage0/bot_d.txt): the mission ends and unlocks Mission 2; with the
+    # slowdown off it is not recorded, and says why.
+    set(botd ${PD_ANALYSIS}/boss_rush/stage0/bot_d.txt)
+    if(EXISTS "${botd}")
+        add_test(NAME mslug4_progress_mission_unlocked
+                 COMMAND mslug4 --roms ${PD_ROMS} --headless --no-audio --frames 11200 --script ${botd}
+                         --date 2026-10-24-01-00-00-6)
+        add_test(NAME mslug4_progress_m1_reset
+                 COMMAND ${CMAKE_COMMAND} -E rm -f ${CMAKE_CURRENT_BINARY_DIR}/mslug4_progress_m1.ini)
+        set_tests_properties(mslug4_progress_m1_reset PROPERTIES LABELS mslug4 FIXTURES_SETUP mslug4_progress_m1)
+        set_tests_properties(mslug4_progress_mission_unlocked PROPERTIES LABELS mslug4 FIXTURES_REQUIRED mslug4_progress_m1
+            ENVIRONMENT "PD_PROGRESS=${CMAKE_CURRENT_BINARY_DIR}/mslug4_progress_m1.ini;PD_DEVMODE=1;PD_DIPS=8009;PD_POKE=4600,10ED62,0\;4600,10ED63,3"
+            PASS_REGULAR_EXPRESSION "mission 2 unlocked at frame 11090")
+        add_test(NAME mslug4_records_slowdown_off
+                 COMMAND mslug4 --roms ${PD_ROMS} --headless --no-audio --turbo 2 --frames 11200 --script ${botd}
+                         --date 2026-10-24-01-00-00-6)
+        set_tests_properties(mslug4_records_slowdown_off PROPERTIES LABELS mslug4
+            ENVIRONMENT "PD_RECORDS=${CMAKE_CURRENT_BINARY_DIR}/mslug4_records_turbo.ini;PD_RECORDS_MIN_FRAMES=600;PD_DEVMODE=1;PD_DIPS=8009;PD_POKE=4600,10ED62,0\;4600,10ED63,3"
+            PASS_REGULAR_EXPRESSION "mission 1 completed at frame [0-9]+: .*\\(not clean: slowdown off\\)")
+    endif()
     pd_mslug4_cheat_run(vehicles "6700,vehicle,0,0")
     pd_mslug4_cheat_run(forms "6700,form,0,2;6900,form,0,0;7150,form,0,3;7450,form,0,0;7750,form,0,7;8050,form,0,0;8350,form,0,8;8650,form,0,0")
     # Phase 3: games recorded by hand in MAME (grabar_partida.bat, empty NVRAM), replayed by

@@ -151,6 +151,32 @@ MS5_NAMES = {
     ("18", 0xD9): "Drop Shot!",
 }
 
+# Metal Slug 4 (docs/PHASE4_PROFILE.md): Metal Slug 5's driver. Catalogs taken at frame 700 (the
+# intro's black screen: the driver is started and silent; at 1300 the intro music plays). Music in
+# mode 08 (21-33; the game plays its music there, 07 gives the same catalog), effects in 1A
+# (20-79), voices in 18 (1F-F0); mode 19 plays one sound for every command and is left out.
+MS4_MODES = {"08": (0x21, 0x33, "Track"), "1A": (0x20, 0x79, "Effect"), "18": (0x1F, 0xF0, "Voice")}
+MS4_NAMES = {
+    # music: the moment the game plays it in the scripted run and the user's game
+    ("08", 0x32): "Intro (attract)",
+    ("08", 0x24): "How to play",
+    ("08", 0x27): "Soldier select",
+    ("08", 0x2A): "Mission 1",
+    ("08", 0x23): "Mission 1 boss",
+    ("08", 0x25): "Mission complete",
+    ("08", 0x22): "Mission 2",
+    # the weapon records (0xC522E, announcer voice)
+    ("18", 0x58): "Shotgun!",
+    ("18", 0x57): "Rocket Launcher!",
+    ("1A", 0x43): "Flame Shot!",
+    ("18", 0x52): "Heavy Machine Gun!",
+    ("18", 0x53): "Laser Gun!",
+    ("18", 0x77): "Enemy Chaser!",
+    ("18", 0x78): "Super Grenade!",
+    ("18", 0x79): "Iron Lizard!",
+    ("18", 0x7A): "Drop Shot!",
+}
+
 
 def read_catalog(path: Path) -> dict[int, tuple[float, int]]:
     data = {}
@@ -165,11 +191,14 @@ def read_catalog(path: Path) -> dict[int, tuple[float, int]]:
 def main() -> int:
     folder, output = Path(sys.argv[1]), Path(sys.argv[2])
     game = sys.argv[3] if len(sys.argv) > 3 else "mslugx"     # symbol prefix: MSLUGX_SOUNDS
-    title = {"mslugx": "Metal Slug X", "mslug3": "Metal Slug 3", "mslug5": "Metal Slug 5"}.get(game, game)
+    title = {"mslugx": "Metal Slug X", "mslug3": "Metal Slug 3", "mslug5": "Metal Slug 5",
+             "mslug4": "Metal Slug 4"}.get(game, game)
     sym = game.upper()
     rows = []
     if game == "mslug5":
         table = MS5_MODES
+    elif game == "mslug4":
+        table = MS4_MODES
     else:
         ranges = MS3_RANGES if game == "mslug3" else RANGES
         table = {m: (*ranges[m], NAME_PREFIX[m]) for m in ("00", "10", "11")}
@@ -179,7 +208,7 @@ def main() -> int:
             secs, looping = cat.get(cmd, (0.0, 0))
             if secs <= 0:
                 continue
-            names = NAMES if game == "mslugx" else MS3_NAMES if game == "mslug3" else MS5_NAMES
+            names = {"mslugx": NAMES, "mslug3": MS3_NAMES, "mslug4": MS4_NAMES}.get(game, MS5_NAMES)
             name = names.get((mode, cmd), f"{prefix} {cmd:02X}")
             tenths = 0xFFFF if looping else min(int(round(secs * 10)), 0xFFFE)
             rows.append(f'    {{0x{mode}, 0x{cmd:02X}, {tenths}, "{name}"}},')
