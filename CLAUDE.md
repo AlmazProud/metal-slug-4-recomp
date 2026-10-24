@@ -124,11 +124,32 @@ Oracle: `mame mslug4h -bios us -rompath "<workspace>\roms"` (the rebuilt set in 
 | Environment | **Closed** (2026-10-23). Verification 17/17 OK. ROMs copied to `roms\`. |
 | 0. Reconnaissance (Code Mystics format, encryption schemes, black-box decryption, rebuilt `mslug4h` set, ROM map, P2 banks, developer menu, oracle) | **Closed** (2026-10-23). See `docs/ROM_MAP.md`. All 11 game ROMs of `mslug4h` rebuilt from GOG (CRC-32 and SHA-1), the M1 included. |
 | 1. Import Metal Slug 5's runtime and frontend with an empty `mslug4h` descriptor and profile (four executables) | **Closed** (2026-10-23). See `docs/PHASE1_IMPORT.md`. `ctest`: 122/122 (interpreter-only 116/116). |
-| 2. Metal Slug 4 hardware in the interpreter (minimal GOG loader, P2 banks, decrypted M1, PCM2) | - |
+| 2. Metal Slug 4 hardware in the interpreter (minimal GOG loader, P2 banks, decrypted M1, PCM2) | **Closed** (2026-10-23). See `docs/PHASE2_HARDWARE.md`. Image and RAM identical to MAME (attract: 224 known VBlanks, 4 known images; start: no difference); audio as Metal Slug 5's (0.92 / 0.94), reported. `ctest`: 126/126 (interpreter-only 120/120). |
 | 3. Analysis and recompilation | - |
 | 4. Profile and frontend (boss bar and Boss Rush as a stage of their own) | - |
 | 5. Universal loader (GOG, the MAME set decrypted at load) | - |
 | 6. Publishing (`AlmazProud/metal-slug-4-recomp`) | - |
+
+### Phase 2: result
+
+Details in `docs/PHASE2_HARDWARE.md`.
+
+- **The GOG copy loads** (`roms.c`, `NG_FORMAT_CODEMYSTICS`): no decryption, no key table; the
+  sprites are DotEmu's tiles with each half-row's pixels reversed. The system files (BIOS,
+  `000-lo.lo`, `sfix.sfix`) come from a MAME BIOS set below the path (`roms\neogeo\`); a GOG-only
+  install lacks them (Phase 5, the user's decision). Every loaded part equals MAME's regions
+  (`tools/check_load.py`, `PD_DUMP_ROMS`).
+- **Hardware:** `NG_CART_STANDARD` (P2 bank from the low 3 bits of a write to `0x2FFFF0-F`, 4-7
+  give bank 0: Metal Slug X's rule, learned with `bus_probe.py`); the 512 KB fix with Metal Slug
+  3's row banking (`NG_FIX_BANK_ROWS`). `sm1.sm1` in `roms\neogeo\` is the decrypted M1's first
+  128 KB (`rebuild_set.py --sm1`).
+- **Against MAME:** `mslug4_start_vs_mame` identical on every VBlank and frame;
+  `mslug4_attract_vs_mame` with 224 known VBlanks (interrupt one instruction apart: stack, and in 16
+  of them bytes equal again a VBlank later) and 4 known images (4-11 pixels on one line).
+- **Audio:** not sample-exact (47 % / 26 % exact, correlation 0.92 / 0.94), Metal Slug 5's
+  power-on alignment; reported to the user, not chased.
+- Shared code (Metal Slug 5, 3 and X unchanged): `NG_CART_STANDARD`, the Code Mystics loader,
+  `PD_DUMP_ROMS`.
 
 ### Phase 1: result
 
