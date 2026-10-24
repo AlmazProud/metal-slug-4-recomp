@@ -1,6 +1,6 @@
 # Port core: CPU (dispatcher + fallback), recompiled programs, Neo Geo runtime and one executable
-# per game: mslug3 (the product) and mslugx (the regression target, only built when the Metal
-# Slug X copy is available).
+# per game: mslug4 (the product) and mslug5, mslug3 and mslugx (the regression targets, only built
+# when those ports' copies are available).
 
 add_library(cpu68k STATIC cpu/dispatcher.c cpu/musashi_interpreter.c)
 target_include_directories(cpu68k PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/cpu)
@@ -126,13 +126,24 @@ function(pd_game_executable id)
         COMMAND_EXPAND_LISTS)
 endfunction()
 
-pd_recompiled_program(mslug5 "${PD_ROMS}" "${PD_ANALYSIS}")
-pd_game_executable(mslug5)
+pd_recompiled_program(mslug4 "${PD_ROMS}" "${PD_ANALYSIS}")
+pd_game_executable(mslug4)
 
-# Distribution: cmake --install build --prefix <folder> installs mslug5.exe and SDL3.dll. With the
+# Distribution: cmake --install build --prefix <folder> installs mslug4.exe and SDL3.dll. With the
 # recompiled program the executable contains code translated from the user's copy: personal use.
-install(TARGETS mslug5 RUNTIME DESTINATION .)
-install(FILES $<TARGET_RUNTIME_DLLS:mslug5> DESTINATION .)
+install(TARGETS mslug4 RUNTIME DESTINATION .)
+install(FILES $<TARGET_RUNTIME_DLLS:mslug4> DESTINATION .)
+
+# Metal Slug 5 regression target (the Metal Slug 5 port's workspace, read only): built when its
+# decrypted reference files are there, never released.
+set(PD_HAVE_MSLUG5 OFF CACHE INTERNAL "The Metal Slug 5 regression target is built")
+if(EXISTS "${PD_MS5_ROMS}/mslug5_game_m68k")
+    set(PD_HAVE_MSLUG5 ON CACHE INTERNAL "The Metal Slug 5 regression target is built")
+    pd_recompiled_program(mslug5 "${PD_MS5_ROMS}" "${PD_MS5_ANALYSIS}")
+    pd_game_executable(mslug5)
+else()
+    message(STATUS "Metal Slug 5 regression target disabled: ${PD_MS5_ROMS}/mslug5_game_m68k is missing")
+endif()
 
 # Metal Slug 3 regression target (the Metal Slug 3 port's workspace, read only): built when its
 # copy is there, never released.
@@ -154,14 +165,43 @@ else()
     message(STATUS "Metal Slug X regression target disabled: ${PD_MSX_ROMS}/mslugx_game_m68k is missing")
 endif()
 
+# ------------------------------------------------------------------ Metal Slug 4 tests
+# Phase 1: the user's copies are recognized and reported, not loaded yet (docs/PHASE1_IMPORT.md):
+# the GOG copy (Code Mystics' Data\rom\*.bin, by SHA-256) and the mslug4h set rebuilt from it
+# (tools/rebuild_set.py; every file by CRC-32 and SHA-1, linked into the build folder with the BIOS).
+if(EXISTS "${PD_ROMS}/gog/p1.bin")
+    add_test(NAME mslug4_roms_gog COMMAND mslug4 --roms ${PD_ROMS}/gog --headless --frames 1 --no-audio)
+    set_tests_properties(mslug4_roms_gog PROPERTIES LABELS mslug4
+                         PASS_REGULAR_EXPRESSION "GOG copy \\(Code Mystics\\) found and verified \\(5 files\\)")
+else()
+    message(STATUS "Metal Slug 4 GOG test disabled: the user's copy (PD_ROMS/gog) is missing")
+endif()
+if(EXISTS "${PD_ROMS}/mslug4h/263-ph1.p1")
+    set(MS4_SET ${CMAKE_CURRENT_BINARY_DIR}/mslug4_mameset)
+    add_test(NAME mslug4_roms_mame_make
+             COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tests/loader/link_set.py ${PD_ROMS} ${MS4_SET}
+                     mslug4h/263-ph1.p1 mslug4h/263-ph2.sp2 mslug4h/263-m1.m1 mslug4h/263-v1.v1
+                     mslug4h/263-v2.v2 mslug4h/263-c1.c1 mslug4h/263-c2.c2 mslug4h/263-c3.c3
+                     mslug4h/263-c4.c4 mslug4h/263-c5.c5 mslug4h/263-c6.c6
+                     neogeo/sp-u2.sp1 neogeo/000-lo.lo neogeo/sfix.sfix neogeo/sm1.sm1)
+    set_tests_properties(mslug4_roms_mame_make PROPERTIES FIXTURES_SETUP mslug4_mameset LABELS mslug4)
+    add_test(NAME mslug4_roms_mame COMMAND mslug4 --roms ${MS4_SET} --headless --frames 1 --no-audio)
+    set_tests_properties(mslug4_roms_mame PROPERTIES LABELS mslug4 FIXTURES_REQUIRED mslug4_mameset
+                         PASS_REGULAR_EXPRESSION "MAME set found and verified \\(11 files, BIOS us\\)")
+else()
+    message(STATUS "Metal Slug 4 MAME test disabled: the rebuilt set (PD_ROMS/mslug4h) is missing")
+endif()
+
 # ------------------------------------------------------------------ Metal Slug 5 tests
+# The Metal Slug 5 regression target's tests (its workspace's set, reference files and MAME runs).
+if(PD_HAVE_MSLUG5)
 # Phase 1: the MAME set alone (mslug5.zip and neogeo\, linked into the build folder) is
 # recognized, every file by CRC-32 and SHA-1. Its decryption is not in the runtime yet, so the
 # loader stops there and says so.
-if(EXISTS "${PD_ROMS}/mslug5.zip")
+if(EXISTS "${PD_MS5_ROMS}/mslug5.zip")
     set(MS5_SET ${CMAKE_CURRENT_BINARY_DIR}/mslug5_mameset)
     add_test(NAME mslug5_roms_mame_make
-             COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tests/loader/link_set.py ${PD_ROMS} ${MS5_SET}
+             COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tests/loader/link_set.py ${PD_MS5_ROMS} ${MS5_SET}
                      mslug5.zip neogeo/sp-u2.sp1 neogeo/000-lo.lo neogeo/sfix.sfix neogeo/sm1.sm1)
     set_tests_properties(mslug5_roms_mame_make PROPERTIES FIXTURES_SETUP mslug5_mameset LABELS mslug5)
     # Phase 5: the set loads, decrypted at load (src/games/mslug5/crypt.c), with the recompiled
@@ -171,28 +211,28 @@ if(EXISTS "${PD_ROMS}/mslug5.zip")
                          ENVIRONMENT "PD_ROMS_INFO=1"
                          PASS_REGULAR_EXPRESSION "MAME set, arcade program, BIOS us\n.*profile supported")
     # ...and decrypts to exactly the decrypted reference files (every region), zipped and loose.
-    if(EXISTS "${PD_ROMS}/mslug5_game_m68k")
-        add_test(NAME mslug5_roms_mame_zip COMMAND mslug5 --roms ${PD_ROMS} --headless --frames 1 --no-audio)
+    if(EXISTS "${PD_MS5_ROMS}/mslug5_game_m68k")
+        add_test(NAME mslug5_roms_mame_zip COMMAND mslug5 --roms ${PD_MS5_ROMS} --headless --frames 1 --no-audio)
         set_tests_properties(mslug5_roms_mame_zip PROPERTIES LABELS mslug5 FIXTURES_REQUIRED mslug5_mameset
                              ENVIRONMENT "PD_COMPARE_ROMS=${MS5_SET}")
         set(MS5_LOOSE ${CMAKE_CURRENT_BINARY_DIR}/mslug5_mameset_loose)
         add_test(NAME mslug5_roms_mame_loose_make
-                 COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tests/loader/link_set.py ${PD_ROMS} ${MS5_LOOSE}
+                 COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tests/loader/link_set.py ${PD_MS5_ROMS} ${MS5_LOOSE}
                          mslug5.zip! neogeo/sp-u2.sp1 neogeo/000-lo.lo neogeo/sfix.sfix neogeo/sm1.sm1)
         set_tests_properties(mslug5_roms_mame_loose_make PROPERTIES FIXTURES_SETUP mslug5_mameloose LABELS mslug5)
-        add_test(NAME mslug5_roms_mame_loose COMMAND mslug5 --roms ${PD_ROMS} --headless --frames 1 --no-audio)
+        add_test(NAME mslug5_roms_mame_loose COMMAND mslug5 --roms ${PD_MS5_ROMS} --headless --frames 1 --no-audio)
         set_tests_properties(mslug5_roms_mame_loose PROPERTIES LABELS mslug5 FIXTURES_REQUIRED mslug5_mameloose
                              ENVIRONMENT "PD_COMPARE_ROMS=${MS5_LOOSE}")
     endif()
 else()
-    message(STATUS "Metal Slug 5 tests disabled: the user's set (PD_ROMS/mslug5.zip) is missing")
+    message(STATUS "Metal Slug 5 tests disabled: its set (PD_MS5_ROMS/mslug5.zip) is missing")
 endif()
 # Phase 2: the decrypted reference files (tools/make_reference.py) load, every one with its hash.
-if(EXISTS "${PD_ROMS}/mslug5_game_m68k")
-    add_test(NAME mslug5_roms_reference COMMAND mslug5 --roms ${PD_ROMS} --headless --frames 1 --no-audio)
+if(EXISTS "${PD_MS5_ROMS}/mslug5_game_m68k")
+    add_test(NAME mslug5_roms_reference COMMAND mslug5 --roms ${PD_MS5_ROMS} --headless --frames 1 --no-audio)
     set_tests_properties(mslug5_roms_reference PROPERTIES ENVIRONMENT "PD_ROMS_INFO=1" LABELS mslug5
                          PASS_REGULAR_EXPRESSION "Decrypted reference files \\(MAME's regions\\), arcade program, BIOS us\n")
-    # Scripted runs against MAME (tools/mame_run.py --game mslug5, references in PD_ANALYSIS/phase2):
+    # Scripted runs against MAME (tools/mame_run.py --game mslug5, references in PD_MS5_ANALYSIS/phase2):
     #   attract: power-on with empty NVRAM, BIOS and the attract demo;
     #   start: a credit, START, the game's "How to play", soldier select, Mission 1 with a bot.
     # RAM, palette and image on every VBlank / frame (verify_mission.py); <run>_known_vblank.txt
@@ -201,10 +241,10 @@ if(EXISTS "${PD_ROMS}/mslug5_game_m68k")
     # debug dips or red blood (<run>_env.txt: PD_DEVMODE, PD_DIPS, PD_BLOOD...), phase4/missions/*
     # started at another mission (<run>_poke.txt: PD_POKE).
     # boss_rush/stage1/boss_* (docs/BOSS_RUSH.md): the same started at each boss section, invincible.
-    file(GLOB ms5_phase4_runs ${PD_ANALYSIS}/phase4/debug/*_fingerprints.txt
-                              ${PD_ANALYSIS}/phase4/missions/mission*_fingerprints.txt
-                              ${PD_ANALYSIS}/boss_rush/stage1/boss_*_fingerprints.txt)
-    set(ms5_runs ${PD_ANALYSIS}/phase2/attract/attract ${PD_ANALYSIS}/phase2/start/start)
+    file(GLOB ms5_phase4_runs ${PD_MS5_ANALYSIS}/phase4/debug/*_fingerprints.txt
+                              ${PD_MS5_ANALYSIS}/phase4/missions/mission*_fingerprints.txt
+                              ${PD_MS5_ANALYSIS}/boss_rush/stage1/boss_*_fingerprints.txt)
+    set(ms5_runs ${PD_MS5_ANALYSIS}/phase2/attract/attract ${PD_MS5_ANALYSIS}/phase2/start/start)
     foreach(fp ${ms5_phase4_runs})
         if(NOT fp MATCHES "_replay_fingerprints\\.txt$")
             string(REGEX REPLACE "_fingerprints\\.txt$" "" base "${fp}")
@@ -235,7 +275,7 @@ if(EXISTS "${PD_ROMS}/mslug5_game_m68k")
             endif()
             add_test(NAME mslug5_${run}_vs_mame
                      COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/verify_mission.py
-                             --exe $<TARGET_FILE:mslug5> --roms ${PD_ROMS}
+                             --exe $<TARGET_FILE:mslug5> --roms ${PD_MS5_ROMS}
                              --inputs ${base}_inputs.txt --reference ${base}_fingerprints.txt
                              --frames ${frames} --date ${date} ${known}
                              --output ${CMAKE_CURRENT_BINARY_DIR}/mslug5_${run}_fingerprints_port.txt)
@@ -245,7 +285,7 @@ if(EXISTS "${PD_ROMS}/mslug5_game_m68k")
     # Phase 4: the "Start mission" option (PD_START_MISSION) against the MAME run that starts at
     # Mission 4: identical images; RAM differs while the option has written the mission and the
     # MAME run has not yet (mission4_option_known_vblank.txt).
-    set(m4 ${PD_ANALYSIS}/phase4/missions/mission4)
+    set(m4 ${PD_MS5_ANALYSIS}/phase4/missions/mission4)
     if(EXISTS "${m4}_option_known_vblank.txt" AND EXISTS "${m4}_fingerprints.txt")
         file(READ "${m4}_date.txt" date)
         file(READ "${m4}_frames.txt" frames)
@@ -253,7 +293,7 @@ if(EXISTS "${PD_ROMS}/mslug5_game_m68k")
         string(STRIP "${frames}" frames)
         add_test(NAME mslug5_start_mission_option_vs_mame
                  COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/verify_mission.py
-                         --exe $<TARGET_FILE:mslug5> --roms ${PD_ROMS}
+                         --exe $<TARGET_FILE:mslug5> --roms ${PD_MS5_ROMS}
                          --inputs ${m4}_inputs.txt --reference ${m4}_fingerprints.txt
                          --frames ${frames} --date ${date} --known-differences ${m4}_option_known_vblank.txt
                          --output ${CMAKE_CURRENT_BINARY_DIR}/mslug5_start_mission_option_fingerprints_port.txt)
@@ -262,7 +302,7 @@ if(EXISTS "${PD_ROMS}/mslug5_game_m68k")
     # Phase 4: the cheats (PD_CHEAT) against a MAME run that writes the same bytes at the same
     # moments (PD_POKE in cheats_poke.txt): the Heavy Machine Gun and the Enemy Chaser through the
     # game's own routine (the bytes it changed, PD_SPAWN_POKES), 63 bombs, 7 lives, Eri.
-    set(ch ${PD_ANALYSIS}/phase4/cheats/cheats)
+    set(ch ${PD_MS5_ANALYSIS}/phase4/cheats/cheats)
     if(EXISTS "${ch}_fingerprints.txt" AND EXISTS "${ch}_known_vblank.txt")
         file(READ "${ch}_date.txt" date)
         file(READ "${ch}_frames.txt" frames)
@@ -270,7 +310,7 @@ if(EXISTS "${PD_ROMS}/mslug5_game_m68k")
         string(STRIP "${frames}" frames)
         add_test(NAME mslug5_cheats_vs_mame
                  COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/verify_mission.py
-                         --exe $<TARGET_FILE:mslug5> --roms ${PD_ROMS}
+                         --exe $<TARGET_FILE:mslug5> --roms ${PD_MS5_ROMS}
                          --inputs ${ch}_inputs.txt --reference ${ch}_fingerprints.txt
                          --frames ${frames} --date ${date} --known-differences ${ch}_known_vblank.txt
                          --output ${CMAKE_CURRENT_BINARY_DIR}/mslug5_cheats_fingerprints_port.txt)
@@ -279,7 +319,7 @@ if(EXISTS "${PD_ROMS}/mslug5_game_m68k")
     endif()
     # The vehicle cheat (phase4/vehicles): the Metal Slug spawned at frame 6700 (ridden by the bot);
     # the MAME run writes the RAM bytes the spawn changed (PD_SPAWN_POKES) at the same frame.
-    set(ve ${PD_ANALYSIS}/phase4/vehicles/vehicles)
+    set(ve ${PD_MS5_ANALYSIS}/phase4/vehicles/vehicles)
     if(EXISTS "${ve}_fingerprints.txt" AND EXISTS "${ve}_known_vblank.txt")
         file(READ "${ve}_date.txt" date)
         file(READ "${ve}_frames.txt" frames)
@@ -287,7 +327,7 @@ if(EXISTS "${PD_ROMS}/mslug5_game_m68k")
         string(STRIP "${frames}" frames)
         add_test(NAME mslug5_vehicles_vs_mame
                  COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/verify_mission.py
-                         --exe $<TARGET_FILE:mslug5> --roms ${PD_ROMS}
+                         --exe $<TARGET_FILE:mslug5> --roms ${PD_MS5_ROMS}
                          --inputs ${ve}_inputs.txt --reference ${ve}_fingerprints.txt
                          --frames ${frames} --date ${date} --known-differences ${ve}_known_vblank.txt
                          --output ${CMAKE_CURRENT_BINARY_DIR}/mslug5_vehicles_fingerprints_port.txt)
@@ -295,7 +335,7 @@ if(EXISTS "${PD_ROMS}/mslug5_game_m68k")
     endif()
     # The fat cheat (phase4/forms): fat at frame 6700, normal at 6900; the MAME run writes the bytes
     # the cheat wrote (PD_SPAWN_POKES: the requested form and the food counter every frame).
-    set(fo ${PD_ANALYSIS}/phase4/forms/forms)
+    set(fo ${PD_MS5_ANALYSIS}/phase4/forms/forms)
     if(EXISTS "${fo}_fingerprints.txt" AND EXISTS "${fo}_known_vblank.txt")
         file(READ "${fo}_date.txt" date)
         file(READ "${fo}_frames.txt" frames)
@@ -303,7 +343,7 @@ if(EXISTS "${PD_ROMS}/mslug5_game_m68k")
         string(STRIP "${frames}" frames)
         add_test(NAME mslug5_forms_vs_mame
                  COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/verify_mission.py
-                         --exe $<TARGET_FILE:mslug5> --roms ${PD_ROMS}
+                         --exe $<TARGET_FILE:mslug5> --roms ${PD_MS5_ROMS}
                          --inputs ${fo}_inputs.txt --reference ${fo}_fingerprints.txt
                          --frames ${frames} --date ${date} --known-differences ${fo}_known_vblank.txt
                          --output ${CMAKE_CURRENT_BINARY_DIR}/mslug5_forms_fingerprints_port.txt)
@@ -312,8 +352,8 @@ if(EXISTS "${PD_ROMS}/mslug5_game_m68k")
     # Boss health bar (docs/BOSS_RUSH.md, stage 2): the Mission 1 boss section, the tank's life set
     # to 10 at frame 7000; the bar follows it to its death (PD_BOSSBAR prints the bar's changes).
     add_test(NAME mslug5_bossbar_m1
-             COMMAND mslug5 --roms ${PD_ROMS} --headless --frames 7200 --no-audio
-                     --script ${PD_ANALYSIS}/phase2/start/start_script.txt --date 2026-10-18-00-59-09-0)
+             COMMAND mslug5 --roms ${PD_MS5_ROMS} --headless --frames 7200 --no-audio
+                     --script ${PD_MS5_ANALYSIS}/phase2/start/start_script.txt --date 2026-10-18-00-59-09-0)
     set_tests_properties(mslug5_bossbar_m1 PROPERTIES LABELS mslug5
         ENVIRONMENT "PD_BOSSBAR=1;PD_DEVMODE=1;PD_DIPS=8000;PD_POKE=5800,10D680,0\;5800,10D681,8\;7000,101F00,0\;7000,101F01,A"
         PASS_REGULAR_EXPRESSION "bossbar 7000: boss 101EAC 10/5000
@@ -322,10 +362,10 @@ bossbar 7020: boss 101EAC 0/5000 dead")
     # "D kills every enemy" dip and a bot (analysis/boss_rush/stage3/bot_d.txt): each boss section
     # leads to the next, the last one to the ending. And the unlock: completing the game (the last
     # mission's step, 4 -> 5) from the final boss's section.
-    set(rush3 ${PD_ANALYSIS}/boss_rush/stage3/bot_d.txt)
+    set(rush3 ${PD_MS5_ANALYSIS}/boss_rush/stage3/bot_d.txt)
     if(EXISTS "${rush3}")
         add_test(NAME mslug5_bossrush_full
-                 COMMAND mslug5 --roms ${PD_ROMS} --headless --no-audio --frames 14200 --script ${rush3}
+                 COMMAND mslug5 --roms ${PD_MS5_ROMS} --headless --no-audio --frames 14200 --script ${rush3}
                          --date 2026-10-18-00-59-09-0)
         set_tests_properties(mslug5_bossrush_full PROPERTIES LABELS mslug5
             ENVIRONMENT "PD_BOSSRUSH=1;PD_DEVMODE=1;PD_DIPS=8009"
@@ -335,14 +375,14 @@ bossrush 9786: next boss, 3/5 bosses defeated
 bossrush 11415: next boss, 4/5 bosses defeated
 bossrush 14119: cleared, 5/5 bosses defeated")
         add_test(NAME mslug5_progress_game_completed
-                 COMMAND mslug5 --roms ${PD_ROMS} --headless --no-audio --frames 9100 --script ${rush3}
+                 COMMAND mslug5 --roms ${PD_MS5_ROMS} --headless --no-audio --frames 9100 --script ${rush3}
                          --date 2026-10-18-00-59-09-0)
         set_tests_properties(mslug5_progress_game_completed PROPERTIES LABELS mslug5
             ENVIRONMENT "PD_PROGRESS=${CMAKE_CURRENT_BINARY_DIR}/mslug5_progress_completed.ini;PD_DEVMODE=1;PD_DIPS=8009;PD_POKE=5800,10D680,4\;5800,10D681,6"
             PASS_REGULAR_EXPRESSION "game completed at frame 9017")
         # A mission completed with the slowdown off is not recorded, and says why.
         add_test(NAME mslug5_records_slowdown_off
-                 COMMAND mslug5 --roms ${PD_ROMS} --headless --no-audio --turbo 2 --frames 9100 --script ${rush3}
+                 COMMAND mslug5 --roms ${PD_MS5_ROMS} --headless --no-audio --turbo 2 --frames 9100 --script ${rush3}
                          --date 2026-10-18-00-59-09-0)
         set_tests_properties(mslug5_records_slowdown_off PROPERTIES LABELS mslug5
             ENVIRONMENT "PD_RECORDS=${CMAKE_CURRENT_BINARY_DIR}/mslug5_records_turbo.ini;PD_RECORDS_MIN_FRAMES=600;PD_DEVMODE=1;PD_DIPS=8009;PD_POKE=5800,10D680,4\;5800,10D681,6"
@@ -353,25 +393,25 @@ bossrush 14119: cleared, 5/5 bosses defeated")
     # soldier select (the section byte 0xFF at frame 2707).
     file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/mslug5_mission_direct.txt "301 306 coin1\n351 356 start1\n")
     add_test(NAME mslug5_mission_mode_direct
-             COMMAND mslug5 --roms ${PD_ROMS} --headless --no-audio --frames 3000
+             COMMAND mslug5 --roms ${PD_MS5_ROMS} --headless --no-audio --frames 3000
                      --script ${CMAKE_CURRENT_BINARY_DIR}/mslug5_mission_direct.txt --date 2026-10-18-00-59-09-0)
     set_tests_properties(mslug5_mission_mode_direct PROPERTIES LABELS mslug5 ENVIRONMENT "PD_MISSION_ONCE=3"
         PASS_REGULAR_EXPRESSION "start mission 3 written at frame 270[0-9]")
     # Phase 4: the sound menu (src/games/mslug5/sounds.c, the profile's driver modes) is audible in
     # the middle of the user's game and, after closing it, the game stays identical.
-    set(play1 ${PD_ANALYSIS}/phase3/play/partida1)
+    set(play1 ${PD_MS5_ANALYSIS}/phase3/play/partida1)
     if(EXISTS "${play1}_replay_inputs.txt" AND EXISTS "${play1}_date.txt")
         file(READ "${play1}_date.txt" date)
         string(STRIP "${date}" date)
         add_test(NAME mslug5_sound_menu
-                 COMMAND mslug5 --roms ${PD_ROMS} --headless --frames 20000 --test-sounds
+                 COMMAND mslug5 --roms ${PD_MS5_ROMS} --headless --frames 20000 --test-sounds
                          --inputs ${play1}_replay_inputs.txt --date ${date})
         set_tests_properties(mslug5_sound_menu PROPERTIES LABELS mslug5)
     endif()
     # Phase 3: games recorded by hand in MAME (grabar_partida.bat, empty NVRAM), replayed by
-    # mame_run.py --replay --name NAME into PD_ANALYSIS/phase3/play: mslug5_play_<NAME>_vs_mame.
+    # mame_run.py --replay --name NAME into PD_MS5_ANALYSIS/phase3/play: mslug5_play_<NAME>_vs_mame.
     # <NAME>_known_vblank.txt: VBlanks that differ only in the stack (docs/PHASE3_RECOMP.md).
-    file(GLOB played ${PD_ANALYSIS}/phase3/play/*_replay_fingerprints.txt)
+    file(GLOB played ${PD_MS5_ANALYSIS}/phase3/play/*_replay_fingerprints.txt)
     foreach(fp ${played})
         string(REGEX REPLACE "_replay_fingerprints\\.txt$" "" base "${fp}")
         get_filename_component(run "${base}" NAME)
@@ -386,13 +426,14 @@ bossrush 14119: cleared, 5/5 bosses defeated")
             endif()
             add_test(NAME mslug5_play_${run}_vs_mame
                      COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/verify_mission.py
-                             --exe $<TARGET_FILE:mslug5> --roms ${PD_ROMS}
+                             --exe $<TARGET_FILE:mslug5> --roms ${PD_MS5_ROMS}
                              --inputs ${base}_replay_inputs.txt --reference ${fp}
                              --frames ${frames} --date ${date} ${known}
                              --output ${CMAKE_CURRENT_BINARY_DIR}/mslug5_play_${run}_fingerprints_port.txt)
             set_tests_properties(mslug5_play_${run}_vs_mame PROPERTIES LABELS mslug5)
         endif()
     endforeach()
+endif()
 endif()
 
 # ------------------------------------------------------------------ Metal Slug 3 tests
@@ -817,5 +858,5 @@ foreach(stage 03 04 05 07 08 09 10 11 12 13)
 endforeach()
 
 get_property(msx_tests DIRECTORY PROPERTY TESTS)
-list(FILTER msx_tests EXCLUDE REGEX "^mslug[35]_")
+list(FILTER msx_tests EXCLUDE REGEX "^mslug[345]_")
 set_tests_properties(${msx_tests} PROPERTIES LABELS mslugx)
