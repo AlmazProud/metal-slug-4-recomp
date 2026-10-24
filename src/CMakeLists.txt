@@ -66,7 +66,7 @@ function(pd_recompiled_program id roms analysis)
                 --listings ${analysis}/listing_p1.txt ${analysis}/listing_bios.txt
                 --coverage ${coverage}
                 --cycles ${CYCLES_BIN} --output ${dir} --files 16
-        DEPENDS ${RECOMP_PY} ${CYCLES_BIN}
+        DEPENDS ${RECOMP_PY} ${CYCLES_BIN} ${analysis}/listing_p1.txt ${analysis}/listing_bios.txt ${coverage}
         COMMENT "Recompiling the user's ${id} P1 and BIOS to C"
         VERBATIM)
     # Code generated from the user's copy: it lives only in build/.
@@ -126,7 +126,8 @@ function(pd_game_executable id)
         COMMAND_EXPAND_LISTS)
 endfunction()
 
-pd_recompiled_program(mslug4 "${PD_ROMS}" "${PD_ANALYSIS}")
+# Metal Slug 4's 68000 files come from tools/make_reference.py --mslug4, outside the ROM folder.
+pd_recompiled_program(mslug4 "${PD_ANALYSIS}/phase3/program" "${PD_ANALYSIS}")
 pd_game_executable(mslug4)
 
 # Distribution: cmake --install build --prefix <folder> installs mslug4.exe and SDL3.dll. With the
@@ -206,6 +207,30 @@ if(EXISTS "${PD_ROMS}/gog/p1.bin")
                              --frames ${frames} --date ${date} ${known}
                              --output ${CMAKE_CURRENT_BINARY_DIR}/mslug4_${run}_fingerprints_port.txt)
             set_tests_properties(mslug4_${run}_vs_mame PROPERTIES LABELS mslug4)
+        endif()
+    endforeach()
+    # Phase 3: games recorded by hand in MAME (grabar_partida.bat, empty NVRAM), replayed by
+    # mame_run.py --replay --name NAME into PD_ANALYSIS/phase3/play: mslug4_play_<NAME>_vs_mame.
+    file(GLOB played ${PD_ANALYSIS}/phase3/play/*_replay_fingerprints.txt)
+    foreach(fp ${played})
+        string(REGEX REPLACE "_replay_fingerprints\\.txt$" "" base "${fp}")
+        get_filename_component(run "${base}" NAME)
+        if(EXISTS "${base}_date.txt" AND EXISTS "${base}_frames.txt")
+            file(READ "${base}_date.txt" date)
+            file(READ "${base}_frames.txt" frames)
+            string(STRIP "${date}" date)
+            string(STRIP "${frames}" frames)
+            set(known)
+            if(EXISTS "${base}_known_vblank.txt")
+                set(known --known-differences ${base}_known_vblank.txt)
+            endif()
+            add_test(NAME mslug4_play_${run}_vs_mame
+                     COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/verify_mission.py
+                             --exe $<TARGET_FILE:mslug4> --roms ${PD_ROMS}
+                             --inputs ${base}_replay_inputs.txt --reference ${fp}
+                             --frames ${frames} --date ${date} ${known}
+                             --output ${CMAKE_CURRENT_BINARY_DIR}/mslug4_play_${run}_fingerprints_port.txt)
+            set_tests_properties(mslug4_play_${run}_vs_mame PROPERTIES LABELS mslug4)
         endif()
     endforeach()
 else()

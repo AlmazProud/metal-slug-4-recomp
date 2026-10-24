@@ -194,7 +194,10 @@ void mach_w16(uint32_t a, uint32_t v)
     } else if (ng_game->cart == NG_CART_SMA) {
         if (a == ng_game->sma_bank_reg) m->p2_base = sma_base((uint16_t)v);
     } else {
-        if (a >= 0x2FFFE0 && a <= 0x2FFFEF) { prot_w(a - 0x2FFFE0, (uint16_t)v); return; }
+        if (ng_game->cart == NG_CART_ALTERA_MSLUGX && a >= 0x2FFFE0 && a <= 0x2FFFEF) {
+            prot_w(a - 0x2FFFE0, (uint16_t)v);
+            return;
+        }
         if (a >= 0x2FFFF0 && a <= 0x2FFFFF) { m->p2_base = altera_base(v & 7); return; }
     }
     if (a >= 0x3A0000 && a < 0x3C0000) {                 /* system latch (odd byte) */

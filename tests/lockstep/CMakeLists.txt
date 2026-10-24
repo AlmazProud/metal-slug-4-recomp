@@ -26,6 +26,9 @@ function(pd_lockstep id exe roms state prefix)
     endif()
 endfunction()
 
+# Metal Slug 4: MAME dump in Mission 1 of the scripted game (analysis/phase3, dump_state.lua); the
+# 68000 files from tools/make_reference.py --mslug4.
+pd_lockstep(mslug4 lockstep_mslug4 "${PD_ANALYSIS}/phase3/program" "${PD_ANALYSIS}/phase3/state_start_f8000.bin" lockstep_mslug4)
 # Metal Slug 5: MAME dump in Mission 1 of the scripted game (analysis/phase3, dump_state.lua with
 # PD_PVC=1: version 3, the NEO-PVC's window offset and RAM).
 if(PD_HAVE_MSLUG5)
