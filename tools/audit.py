@@ -50,8 +50,11 @@ BYTE_ARRAY_OK = {
     # a black box with synthetic patterns, the Metal Slug 5 port's docs/PHASE5_LOADER.md): no game
     # data. They let the Metal Slug 5 regression target load MAME's encrypted set; kept by the
     # user's decision in that port (Phase 5, 2026-10-18). They arrive with the import (Phase 1).
-    # Metal Slug 4's own key tables, if any, need the user's decision for this port.
     "src/games/mslug5/crypt_tables.h",
+    # Metal Slug 4's decryption key tables (PCM2, CMC50 and the M1's, learned from MAME as a black
+    # box with synthetic patterns, docs/PHASE5_LOADER.md): no game data. They let the port load
+    # MAME's encrypted set; authorized by the user for this port (Phase 5, 2026-10-24).
+    "src/games/mslug4/crypt_tables.h",
 }
 
 
