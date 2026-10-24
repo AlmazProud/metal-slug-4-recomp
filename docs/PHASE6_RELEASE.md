@@ -58,8 +58,11 @@ in `audit.py` with its reason.
 
 ## Stage 4: publishing (each step with the user's OK)
 
-1. `gh repo create AlmazProud/metal-slug-4-recomp --public --source . --remote origin --push`: the
-   whole history to `main`.
-2. The CI build of that push.
-3. `gh release create v1.0.0` on `main` with the zip and `release/notes-v1.0.0.md` (outside the
-   repository); the zip downloaded back checked by SHA-256.
+**Repository:** https://github.com/AlmazProud/metal-slug-4-recomp (public, branch `main`)
+
+1. With the user's OK (2026-10-24): `gh repo create AlmazProud/metal-slug-4-recomp --public
+   --source . --remote origin --push`: the whole history (28 commits), `main` the same commit as
+   the local one (`d7d6e0c`). The push started the CI build.
+2. CI: that build (GitHub Actions, the pinned toolchain) passed in 44 s, artifact `mslug4-win64`.
+3. Pending the user's OK: `gh release create v1.0.0` on `main` with the zip and
+   `release/notes-v1.0.0.md` (outside the repository); the zip downloaded back checked by SHA-256.
