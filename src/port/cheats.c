@@ -325,9 +325,18 @@ void cheats_frame(void)
     } else if ((start > 0 || cheats_start_mission_once >= 0) && game_profile.missions && profile_supported() &&
         (*ram8(0x10FDB6) == 1 || *ram8(0x10FDB7) == 1)) {
         uint8_t *m = ram8(game_profile.start_mission);
+        /* With a section (Boss Rush): written again whenever the game clears the bytes, until it is
+           loaded (Metal Slug 4's "How to play" runs with the player playing and clears them after
+           the first write). */
+        int section = cheats_start_mission_once >= 0 ? cheats_start_section_once : -1;
         if (m[0] == 0 && m[1] == 0) {
             if (start > 0) m[0] = (uint8_t)start;
-            if (cheats_start_mission_once >= 0 && cheats_start_section_once >= 0) m[1] = (uint8_t)cheats_start_section_once;
+            if (section >= 0) m[1] = (uint8_t)section;
+            else {
+                cheats_start_mission_once = -1;
+                cheats_start_section_once = -1;
+            }
+        } else if (section >= 0 && m[0] == start && m[1] == 0xFF) {       /* loaded */
             cheats_start_mission_once = -1;
             cheats_start_section_once = -1;
         }

@@ -8,7 +8,7 @@ stages, each one closed with a report:
 | 0 | How to reach every boss without playing the whole game | **Closed**, pending approval (2026-10-24) |
 | 1 | Identify the bosses (code, life, death), the middle bosses too | **Closed**, pending approval (2026-10-24) |
 | 2 | Boss health bar | **Closed**, pending approval (2026-10-24) |
-| 3 | Boss Rush | - |
+| 3 | Boss Rush | **Closed**, pending approval (2026-10-24) |
 
 Official names (the user allowed a web search; [Arcade Quartermaster](https://www.arcadequartermaster.com/mslug4_bosses.html),
 [Wikipedia](https://en.wikipedia.org/wiki/Metal_Slug_4)): Mission 1 Bura Gariae, Mission 2
@@ -147,3 +147,32 @@ floor, The Iron, Big John (2900/3000 at frame 5602 to 0 and dead at 6921), Sea S
 Computer. Tests `mslug4_bossbar_m4`, `_m1` (the phases) and `_final` (the Mother Computer, its life
 set to 10 at frame 30000: `10/6400`, then `0/6400 dead`). In the window, a state saved in the Big
 John fight shows the bar at the right edge with `BIG JOHN`.
+## Stage 3: Boss Rush
+
+Metal Slug 3's and 5's Boss Rush (`src/port/bossrush.c`, Game modes > Boss Rush) with Metal Slug
+4's profile: the boss sections of stage 1 in order (Bura Gariae `0 3`, Toschka Dalanue `1 2`, The
+Iron `2 3`, Big John `3 6`, Sea Satan `4 5`, the Allen android `5 9`, Amadeus `5 10`: 7 bosses,
+the final section counted as one) and the Heavy Machine Gun at the start. The write hook on the
+start bytes (`0x10ED62`) sees the game ask for another section at a mission's end and inside a
+mission (stage 1) and writes the next boss's mission and section in its place; after the last one
+the game's own ending follows and the summary opens.
+
+- **Shared code** (Metal Slug 3 and 5 unchanged, their Boss Rush tests pass): the first boss's
+  start bytes (`cheats.c`, written once when a new game sets them to 0) are now written again
+  whenever the game clears them, until the section is loaded, when a section is asked for (Boss
+  Rush only). Metal Slug 4's "How to play" runs with the player playing and clears them after the
+  first write: the rush started at Mission 1's first section (its first boss came at frame 16 961,
+  the end of the whole mission; now 11 090).
+- **Unlocked** by completing the game in Arcade or Mission mode, as in Metal Slug 3 and 5: the
+  final boss's defeat leads to the last mission's step (mission byte 5 -> 6).
+- **Tests:** `mslug4_bossrush_full` (`PD_BOSSRUSH=1`, invincible, `analysis\boss_rush\stage3\bot_rush.txt`:
+  D every 100 frames until the final section, then the bot that crosses the screen without D, since
+  the dip stops the final fight): the seven bosses in a row, cleared at frame 39 684 (the bot
+  defeats Amadeus's robot, its second form and the Mother Computer itself).
+  `mslug4_progress_game_completed`: from the final section, the Mother Computer's life set to 10,
+  the game completed at frame 32 171.
+- **Window check** (`rushrun`, a fresh preferences folder with the Boss Rush unlocked): the Boss Rush
+  card starts the run at Mission 1's boss section with the Heavy Machine Gun picked up; locked, the
+  card says to complete the game.
+- Not against MAME: the jumps between bosses are the port's own change to the game; each fight is
+  the game's (stage 1).

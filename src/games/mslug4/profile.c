@@ -62,6 +62,19 @@ static const ProfileBoss BOSSES[] = {
     {0x073070u, 0x073960u, 6400, "MOTHER COMPUTER"},  /* Mission 6: Amadeus's Mother Computer */
 };
 
+/* Boss Rush (docs/BOSS_RUSH.md): each boss's section in the developers' stage table (mission
+   byte, record). The final section has Amadeus's robot, its second form and the Mother Computer:
+   one boss. */
+static const ProfileRush RUSH[] = {
+    {0, 3, 1},      /* Mission 1: Bura Gariae */
+    {1, 2, 1},      /* Mission 2: Toschka Dalanue */
+    {2, 3, 1},      /* Mission 3: The Iron */
+    {3, 6, 1},      /* Mission 4: Big John */
+    {4, 5, 1},      /* Mission 5: Sea Satan */
+    {5, 9, 1},      /* Mission 6: the Allen android */
+    {5, 10, 1},     /* Mission 6: Amadeus */
+};
+
 /* The soldier select (Marco, Fio, Trevor, Nadia) and the internal characters (Marco 0, Trevor 1,
    Nadia 2, Fio 3: Metal Slug 3's numbers with Trevor and Nadia for Tarma and Eri), checked by
    picking each one. */
@@ -224,6 +237,14 @@ const GameProfile game_profile = {
     .boss_life_signed = 1,
     .bosses = BOSSES,
     .n_bosses = (int)(sizeof BOSSES / sizeof BOSSES[0]),
+    /* Boss Rush: the write hook on the start bytes (0x10ED62) sees the game ask for another
+       section, at a mission's end (0xBA5E2) and inside a mission; the mission controller reads
+       them at 0xB9FBE. */
+    .rush = RUSH,
+    .n_rush = (int)(sizeof RUSH / sizeof RUSH[0]),
+    .rush_weapon = 5,                         /* Heavy Machine Gun */
+    .stage_start_first = 0x0B9FB4u,
+    .stage_start_last = 0x0B9FD0u,
 
     /* Title screen logo (attract, about frame 2100 after power-on with empty SRAM): sprites 33-52
      * ("METAL SLUG 4") and 274 ("TM", first tile 0x1CABF, used to recognize the moment); the blue

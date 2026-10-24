@@ -337,6 +337,35 @@ if(EXISTS "${PD_ROMS}/gog/p1.bin")
             ENVIRONMENT "PD_BOSSBAR=1;PD_DEVMODE=1;PD_DIPS=${dips};PD_POKE=${poke}"
             PASS_REGULAR_EXPRESSION "${expect}")
     endfunction()
+    # Boss Rush (docs/BOSS_RUSH.md, stage 3): the seven bosses in a row in one game, invincible,
+    # with stage 3's bot (D every 100 frames until the final section, then across the screen
+    # without D: the dip would stop the final fight); each boss section leads to the next and the
+    # last one to the game's own ending. And the unlock: completing the game (mission 5 -> 6) from
+    # the final section, the Mother Computer's life set to 10 at frame 30000.
+    set(botr ${PD_ANALYSIS}/boss_rush/stage3/bot_rush.txt)
+    if(EXISTS "${botr}" AND EXISTS "${botl}")
+        add_test(NAME mslug4_bossrush_full
+                 COMMAND mslug4 --roms ${PD_ROMS} --headless --no-audio --frames 39800 --script ${botr}
+                         --date 2026-10-23-19-12-17-5)
+        set_tests_properties(mslug4_bossrush_full PROPERTIES LABELS mslug4
+            ENVIRONMENT "PD_BOSSRUSH=1;PD_DEVMODE=1;PD_DIPS=8009"
+            PASS_REGULAR_EXPRESSION "bossrush 11090: next boss, 1/7 bosses defeated
+bossrush 12442: next boss, 2/7 bosses defeated
+bossrush 14196: next boss, 3/7 bosses defeated
+bossrush 16229: next boss, 4/7 bosses defeated
+bossrush 22012: next boss, 5/7 bosses defeated
+bossrush 23411: next boss, 6/7 bosses defeated
+bossrush 39684: cleared, 7/7 bosses defeated")
+        add_test(NAME mslug4_progress_completed_reset
+                 COMMAND ${CMAKE_COMMAND} -E rm -f ${CMAKE_CURRENT_BINARY_DIR}/mslug4_progress_completed.ini)
+        set_tests_properties(mslug4_progress_completed_reset PROPERTIES LABELS mslug4 FIXTURES_SETUP mslug4_progress_completed)
+        add_test(NAME mslug4_progress_game_completed
+                 COMMAND mslug4 --roms ${PD_ROMS} --headless --no-audio --frames 32300 --script ${botl}
+                         --date 2026-10-23-19-12-17-5)
+        set_tests_properties(mslug4_progress_game_completed PROPERTIES LABELS mslug4 FIXTURES_REQUIRED mslug4_progress_completed
+            ENVIRONMENT "PD_PROGRESS=${CMAKE_CURRENT_BINARY_DIR}/mslug4_progress_completed.ini;PD_DEVMODE=1;PD_DIPS=8000;PD_POKE=4600,10ED62,5\;4600,10ED63,A\;30000,1034EA,0\;30000,1034EB,A"
+            PASS_REGULAR_EXPRESSION "game completed at frame 32171")
+    endif()
     if(EXISTS "${botd}" AND EXISTS "${botl}")
         pd_mslug4_bossbar(m4 7000 ${botd} 8009 "4600,10ED62,3;4600,10ED63,6"
             "bossbar 5602: BIG JOHN 1014FC 2900/3000.*bossbar 6921: BIG JOHN 1014FC 0/3000 dead")
