@@ -127,7 +127,7 @@ Oracle: `mame mslug4h -bios us -rompath "<workspace>\roms"` (the rebuilt set in 
 | 1. Import Metal Slug 5's runtime and frontend with an empty `mslug4h` descriptor and profile (four executables) | **Closed** (2026-10-23). See `docs/PHASE1_IMPORT.md`. `ctest`: 122/122 (interpreter-only 116/116). |
 | 2. Metal Slug 4 hardware in the interpreter (minimal GOG loader, P2 banks, decrypted M1, PCM2) | **Closed** (2026-10-23). See `docs/PHASE2_HARDWARE.md`. Image and RAM identical to MAME (attract: 224 known VBlanks, 4 known images; start: no difference); audio as Metal Slug 5's (0.92 / 0.94), reported. `ctest`: 126/126 (interpreter-only 120/120). |
 | 3. Analysis and recompilation | **Closed**, pending approval (2026-10-23). See `docs/PHASE3_RECOMP.md` and `docs/PHASE3_COVERAGE.md`. No code runs from the P2 banks; P1 and the BIOS recompiled; lockstep identical; the user's game `partida1` identical to MAME (7 known stack-only VBlanks). `ctest`: 129/129 (interpreter-only 121/121). |
-| 4. Profile and frontend (boss bar and Boss Rush as a stage of their own) | Part A (profile and frontend) **closed**, pending approval (2026-10-24). See `docs/PHASE4_PROFILE.md`. Part B (boss bar, Boss Rush): `docs/BOSS_RUSH.md`, stages 0 and 1 closed (stage 1 pending approval). `ctest`: 148/148 (interpreter-only 140/140). |
+| 4. Profile and frontend (boss bar and Boss Rush as a stage of their own) | Part A (profile and frontend) **closed**, pending approval (2026-10-24). See `docs/PHASE4_PROFILE.md`. Part B (boss bar, Boss Rush): `docs/BOSS_RUSH.md`, stages 0-2 closed (stage 2 pending approval). `ctest`: 148/148 (interpreter-only 140/140). |
 | 5. Universal loader (GOG, the MAME set decrypted at load) | - |
 | 6. Publishing (`AlmazProud/metal-slug-4-recomp`) | - |
 

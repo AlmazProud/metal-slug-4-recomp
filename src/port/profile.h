@@ -192,6 +192,11 @@ typedef struct {
        object whose routine is there is labelled BOSS). object_list = 0: no bar. */
     uint32_t object_list;
     uint16_t object_life, object_dead;
+    /* The smallest life a boss is followed from (0: 1000; Metal Slug 4: bosses and phases of 500)
+       and 1 if a life of 0x8000 or more is below 0 (Metal Slug 4's defeated bosses), not
+       indestructible. */
+    uint16_t boss_min_life;
+    uint8_t boss_life_signed;
     const ProfileBoss *bosses;
     int n_bosses;
     /* Boss Rush (bossrush.c): the boss sections in order, and the stage start routine that reads

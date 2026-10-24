@@ -323,6 +323,28 @@ if(EXISTS "${PD_ROMS}/gog/p1.bin")
     # (analysis/boss_rush/stage0/bot_d.txt): the mission ends and unlocks Mission 2; with the
     # slowdown off it is not recorded, and says why.
     set(botd ${PD_ANALYSIS}/boss_rush/stage0/bot_d.txt)
+    set(botl ${PD_ANALYSIS}/boss_rush/stage1/bot_left.txt)
+    # Boss health bar (docs/BOSS_RUSH.md, stage 2; PD_BOSSBAR prints the bar's changes): Big John
+    # from the first hit to its death; the airship's phases (850, then up to 1600); the Mother
+    # Computer (without the "D kills" dip, which stops the final fight) to its death, its life set
+    # to 10 at frame 30000.
+    function(pd_mslug4_bossbar name frames script dips poke expect)
+        add_test(NAME mslug4_bossbar_${name}
+                 COMMAND mslug4 --roms ${PD_ROMS} --headless --frames ${frames} --no-audio --script ${script}
+                         --date 2026-10-23-19-12-17-5)
+        string(REPLACE ";" "\;" poke "${poke}")
+        set_tests_properties(mslug4_bossbar_${name} PROPERTIES LABELS mslug4
+            ENVIRONMENT "PD_BOSSBAR=1;PD_DEVMODE=1;PD_DIPS=${dips};PD_POKE=${poke}"
+            PASS_REGULAR_EXPRESSION "${expect}")
+    endfunction()
+    if(EXISTS "${botd}" AND EXISTS "${botl}")
+        pd_mslug4_bossbar(m4 7000 ${botd} 8009 "4600,10ED62,3;4600,10ED63,6"
+            "bossbar 5602: BIG JOHN 1014FC 2900/3000.*bossbar 6921: BIG JOHN 1014FC 0/3000 dead")
+        pd_mslug4_bossbar(m1 11200 ${botd} 8009 "4600,10ED62,0;4600,10ED63,3"
+            "bossbar 6403: BURA GARIAE 10186C 750/850.*BURA GARIAE 10186C 0/1600 dead")
+        pd_mslug4_bossbar(final 30100 ${botl} 8000 "4600,10ED62,5;4600,10ED63,A;30000,1034EA,0;30000,1034EB,A"
+            "MOTHER COMPUTER 10349C 10/6400.*MOTHER COMPUTER 10349C 0/6400 dead")
+    endif()
     if(EXISTS "${botd}")
         add_test(NAME mslug4_progress_mission_unlocked
                  COMMAND mslug4 --roms ${PD_ROMS} --headless --no-audio --frames 11200 --script ${botd}

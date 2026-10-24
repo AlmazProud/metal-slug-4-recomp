@@ -47,6 +47,21 @@ static const CheatVehicle VEHICLES[] = {
 static const CheatForm FORMS[] = {{0, "Normal"}, {2, "Fat"}, {3, "Mummy"}, {7, "Zombie"}, {8, "Monkey"}};
 static const uint8_t FORM_EVENTS[][2] = {{1, 2}, {3, 4}, {7, 8}, {19, 20}};
 
+/* The bosses' code (docs/BOSS_RUSH.md, stage 1): the routines seen in their objects, alive and
+   defeated, with room; official names (docs/BOSS_RUSH.md). Life 0: taken from what is seen (the
+   airship's phases, the tower's floors). */
+static const ProfileBoss BOSSES[] = {
+    {0x016500u, 0x0167A0u, 0, "BURA GARIAE"},         /* Mission 1: the airship (850, 1000, 1500) */
+    {0x06DF00u, 0x06EC80u, 0, "TOSCHKA DALANUE"},     /* Mission 2: the tower's four floors */
+    {0x06B600u, 0x06BD10u, 5000, "THE IRON"},         /* Mission 3 */
+    {0x0110E0u, 0x0111D0u, 3000, "BIG JOHN"},         /* Mission 4 */
+    {0x013C40u, 0x013F40u, 750, "SEA SATAN"},         /* Mission 5 (refilled between phases) */
+    {0x060800u, 0x060EC0u, 500, "ALLEN O'NEIL"},      /* Mission 6: the Allen android (twice) */
+    {0x070D70u, 0x071150u, 2800, "AMADEUS"},          /* Mission 6: the robot */
+    {0x072020u, 0x072450u, 2800, "AMADEUS"},          /* Mission 6: the robot's second form */
+    {0x073070u, 0x073960u, 6400, "MOTHER COMPUTER"},  /* Mission 6: Amadeus's Mother Computer */
+};
+
 /* The soldier select (Marco, Fio, Trevor, Nadia) and the internal characters (Marco 0, Trevor 1,
    Nadia 2, Fio 3: Metal Slug 3's numbers with Trevor and Nadia for Tarma and Eri), checked by
    picking each one. */
@@ -196,6 +211,18 @@ const GameProfile game_profile = {
     .object_position = 0x3C,
     .spawn_x = 0x70,
     .spawn_y = 0,
+
+    /* Boss health bar (docs/BOSS_RUSH.md): the stage's object list at 0x100C0C (links at +4,
+       parent at +0xC), every object's life at +0x4E, dead bit at +0x5B (the damage routine
+       0x7E26); bosses from a life of 400 (the Allen android has 500, Sea Satan 750); a defeated
+       airship or Big John goes below 0. */
+    .object_list = 0x100C0Cu,
+    .object_life = 0x4E,
+    .object_dead = 0x5B,
+    .boss_min_life = 400,
+    .boss_life_signed = 1,
+    .bosses = BOSSES,
+    .n_bosses = (int)(sizeof BOSSES / sizeof BOSSES[0]),
 
     /* Title screen logo (attract, about frame 2100 after power-on with empty SRAM): sprites 33-52
      * ("METAL SLUG 4") and 274 ("TM", first tile 0x1CABF, used to recognize the moment); the blue

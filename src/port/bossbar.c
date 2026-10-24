@@ -59,12 +59,14 @@ void bossbar_frame(void)
     for (int n = 0; a && a != head && a >= 0x100000 && a < 0x10F000 && n < 400; n++, a = l32(a + 4)) {
         int life = w16(a + game_profile.object_life);
         int dead = ng.ram[(a + game_profile.object_dead) & 0xFFFF] & 0x80;
+        if (game_profile.boss_life_signed && life >= 0x8000) life = 0;       /* below 0: defeated */
+        int min_life = game_profile.boss_min_life ? game_profile.boss_min_life : MIN_LIFE;
         int k = -1;
         for (int i = 0; i < TRACKED; i++)
             if (e[i].addr == a && !e[i].gone) k = i;
         if (k < 0) {
             const ProfileBoss *b = boss_of(l32(a));            /* only the bosses: other enemies have no bar */
-            if (!b || dead || life < MIN_LIFE || life >= MAX_LIFE) continue;
+            if (!b || dead || life < min_life || life >= MAX_LIFE) continue;
             /* a part with its parent's life (parts copy it every frame): the parent is the enemy */
             uint32_t parent = l32(a + 0xC);
             if (parent != head && parent >= 0x100000 && parent < 0x10F000 &&

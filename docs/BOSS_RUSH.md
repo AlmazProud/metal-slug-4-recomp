@@ -7,7 +7,7 @@ stages, each one closed with a report:
 |---|---|---|
 | 0 | How to reach every boss without playing the whole game | **Closed**, pending approval (2026-10-24) |
 | 1 | Identify the bosses (code, life, death), the middle bosses too | **Closed**, pending approval (2026-10-24) |
-| 2 | Boss health bar | - |
+| 2 | Boss health bar | **Closed**, pending approval (2026-10-24) |
 | 3 | Boss Rush | - |
 
 Official names (the user allowed a web search; [Arcade Quartermaster](https://www.arcadequartermaster.com/mslug4_bosses.html),
@@ -121,3 +121,29 @@ the seven boss sections; RAM identical except in Mission 1's and 4's runs, where
 VBlank one instruction apart (`boss_m1_known_vblank.txt`, `boss_m4_known_vblank.txt`, checked byte
 by byte: the stack and `0x100094`, the line the game measures after its wait loop). Tests
 `mslug4_boss_m1_vs_mame` ... `_m6_vs_mame`, `mslug4_boss_m6_allen_vs_mame`.
+
+## Stage 2: the health bar
+
+Metal Slug 3's bar (`src/port/bossbar.c`, Settings > Game > "Boss health bar") with Metal Slug 4's
+profile: the object list `0x100C0C` (next at `+4`, parent at `+0xC`), the life at `+0x4E`, the
+dead bit at `+0x5B`, and stage 1's bosses by their code, with their official names
+(`BURA GARIAE`, `TOSCHKA DALANUE`, `THE IRON`, `BIG JOHN`, `SEA SATAN`, `ALLEN O'NEIL`,
+`AMADEUS` for the robot and its second form, `MOTHER COMPUTER`). The airship and the tower have no
+fixed full life (their phases and floors differ): the bar takes the largest life it sees, so a
+new phase fills it again.
+
+Shared code (Metal Slug 3 and 5 unchanged, their bar and Boss Rush tests pass):
+
+- `boss_min_life`: the smallest life a boss is followed from (default 1000; Metal Slug 4: 400, for
+  the Allen android's 500, Sea Satan's 750 and the airship's first phase, 850). Only objects
+  running a known boss's code are followed, as before.
+- `boss_life_signed`: a life of 0x8000 or more is below 0 (the defeated airship and Big John:
+  `0xFF9C`, `0xFFEC`), shown as 0, not taken as indestructible.
+
+**Checked** (`analysis\boss_rush\stage2\bar.ps1`, `PD_BOSSBAR=1`): the bar follows every boss from
+its first hit: the airship's three phases (850, 1000, then 1500 or 1600) to 0, the tower floor by
+floor, The Iron, Big John (2900/3000 at frame 5602 to 0 and dead at 6921), Sea Satan's phases
+(750, refilled, 1, dead), the Allen android, Amadeus's robot and its second form, the Mother
+Computer. Tests `mslug4_bossbar_m4`, `_m1` (the phases) and `_final` (the Mother Computer, its life
+set to 10 at frame 30000: `10/6400`, then `0/6400 dead`). In the window, a state saved in the Big
+John fight shows the bar at the right edge with `BIG JOHN`.
