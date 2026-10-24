@@ -6,7 +6,7 @@ stages, each one closed with a report:
 | Stage | Content | Status |
 |---|---|---|
 | 0 | How to reach every boss without playing the whole game | **Closed**, pending approval (2026-10-24) |
-| 1 | Identify the bosses (code, life, death), the middle bosses too | - |
+| 1 | Identify the bosses (code, life, death), the middle bosses too | **Closed**, pending approval (2026-10-24) |
 | 2 | Boss health bar | - |
 | 3 | Boss Rush | - |
 
@@ -71,3 +71,53 @@ on the start bytes applies. Inside a mission the start bytes are not written (th
 writes are the new game's and the setter `0xBA8DC`); the controller presumably advances its own
 section byte (`$71`): to be checked in stage 3 (the Allen android's section `6-9` and the final
 machine's `6-A` are consecutive).
+
+## Stage 1: the bosses
+
+Found with `analysis\boss_rush\stage1` (outside the repo):
+
+- `run_section.ps1 MISSION RECORD [FRAMES] [DIPS] [SCRIPT]`: a section started as in stage 0, the
+  developer mode with debug dips (`8000` invincible; `8009` also "D kills every enemy" with
+  `bot_d.txt`), RAM every 60 VBlanks.
+- `survey.py`: walks the object list (`0x100C0C`, next at `+4`, parent at `+0xC`) and lists, per
+  object, the VBlanks, the routines, the largest and smallest life, the dead bit and the parent.
+- `routines.py`: one object's routines and life in time order (alive, phases, defeat).
+- `make_bot_left.py`: a bot that crosses the screen firing up (the final boss: the scripted bot
+  stays on the right, where the Mother Computer is not hit).
+- Every mission walked from its first section with the D bot, then the sections it did not reach
+  one by one (the ship's and the final base's), objects with 300 or more life.
+
+| Boss | Life | Object | Code (alive -> defeat) | How it ends |
+|---|---|---|---|---|
+| Mission 1: Bura Gariae (the airship) | three phases: 850, 1000, 1500-1600 (life 1 between them) | top level; the cages (350) are its children | `0x16516`-`0x16794`: phases `0x165CE`, `0x16672`, `0x16706`, defeat `0x16794` | the life goes below 0 (no dead bit); mission 0 -> 1 |
+| Mission 2: Toschka Dalanue (the pillbox tower, piloted by Allen) | four floors: 2700, 2700, 2400, 2100 | four objects (children of the tower's controller) | `0x6DFF8`-`0x6EC78` | each floor: dead bit; mission 1 -> 2 |
+| Mission 3: The Iron | 5000 | top level | `0x6B60E`-`0x6BD04` | dead bit; mission 2 -> 3 |
+| Mission 4: Big John | 3000 | top level; two parts (`0x1D45A`, the generic part that copies its parent's life) | `0x110E2`-`0x111C2` (defeat `0x111C2`, life below 0 and dead bit) | mission 3 -> 4 |
+| Mission 5: Sea Satan | 750, refilled between phases (750 -> 1, 450 -> 1, ...) | top level and a part (`0x1D45A`) | `0x13C46`-`0x13F3A` (defeat `0x13F3A`) | mission 4 -> 5 (it already appears in `4-5`, the bow) |
+| Mission 6: the Allen android | 500, twice (two "deaths": `0x60D22`, `0x60D64`) | top level | `0x60814`-`0x60EB6` | section 9 -> 10 (start bytes `5 10`) |
+| Mission 6: Amadeus's robot | 2800 | top level | `0x70D70`-`0x71144` | dead bit; its second form follows |
+| Mission 6: the robot's second form | 2800 | a child of the Mother Computer | `0x72028`-`0x72440` | dead bit; the Mother Computer follows |
+| Mission 6: the Mother Computer (Amadeus) | 6400 | top level | `0x7307E`-`0x73950` (defeat `0x735BE`-`0x73606`) | dead bit; sections 11 (the escape) and 13, then the endings: mission 5 -> 6 |
+
+- **No other middle boss:** the whole missions and the remaining sections have only ordinary
+  enemies (500-600 life: the tanks of the final base's engine rooms, soldiers). Allen's Mission 2
+  appearance is the tower itself ([Wikipedia](https://en.wikipedia.org/wiki/Metal_Slug_4): he
+  pilots the second boss). The Morden androids of the final base are objects with life 32767
+  (`0x4829C`, in sections `6-2` to `6-7`): invulnerable, not bosses.
+- **A section ends** when the game writes the start bytes: at a mission's end the next mission and
+  section 0 (`0xBA5E2`), and inside a mission the next section's record, then `0xFF` once loaded
+  (seen in every run: Mission 3's `2 4`, `2 5`, `2 3`; the final base's `5 10` after the Allen
+  android). The Boss Rush hook on the start bytes sees both.
+- **The "D kills every enemy" dip** kills the Amadeus robot at once and the fight then stops: the
+  Mother Computer never takes damage. Without the dip (invincible, `bot_left.txt`) the robot, its
+  second form and the Mother Computer come in turn; with its life set to 10 the Mother Computer
+  dies and the game goes on to the endings.
+- **The airship's last phase** had 1500 in one run and 1600 in another (the section started at
+  `5-4` and reached from `5-1`).
+
+**Against MAME** (`analysis\boss_rush\stage1\boss_*`: the scripted start with the start bytes
+written at frame 4600, invincible, `PD_DIPS=8000 PD_DEVMODE=1`): images identical on every frame of
+the seven boss sections; RAM identical except in Mission 1's and 4's runs, where MAME takes the
+VBlank one instruction apart (`boss_m1_known_vblank.txt`, `boss_m4_known_vblank.txt`, checked byte
+by byte: the stack and `0x100094`, the line the game measures after its wait loop). Tests
+`mslug4_boss_m1_vs_mame` ... `_m6_vs_mame`, `mslug4_boss_m6_allen_vs_mame`.

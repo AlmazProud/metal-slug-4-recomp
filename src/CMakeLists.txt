@@ -193,8 +193,10 @@ if(EXISTS "${PD_ROMS}/gog/p1.bin")
     # debug dips or red blood (<run>_env.txt: PD_DEVMODE, PD_DIPS, PD_BLOOD...), phase4/missions/*
     # started at another mission (<run>_poke.txt: PD_POKE).
     set(ms4_runs ${PD_ANALYSIS}/phase2/attract/attract ${PD_ANALYSIS}/phase2/start/start)
+    # boss_rush/stage1/boss_* (docs/BOSS_RUSH.md): the same started at each boss section, invincible.
     file(GLOB ms4_phase4_runs ${PD_ANALYSIS}/phase4/debug/*_fingerprints.txt
-                              ${PD_ANALYSIS}/phase4/missions/mission*_fingerprints.txt)
+                              ${PD_ANALYSIS}/phase4/missions/mission*_fingerprints.txt
+                              ${PD_ANALYSIS}/boss_rush/stage1/boss_*_fingerprints.txt)
     foreach(fp ${ms4_phase4_runs})
         if(NOT fp MATCHES "_replay_fingerprints\\.txt$")
             string(REGEX REPLACE "_fingerprints\\.txt$" "" base "${fp}")
